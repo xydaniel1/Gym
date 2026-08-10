@@ -165,8 +165,9 @@
     </div>
   </header>
 
-  <div id="pickerWrap" class="hidden pickrow">
+  <div id="pickerWrap" class="pickrow">
     <select id="picker"></select>
+    <button class="iconbtn" id="addExBtn" aria-label="Dodaj nowe ćwiczenie">➕</button>
     <button class="iconbtn" id="renameBtn" aria-label="Zmień nazwę ćwiczenia">✏️</button>
   </div>
 
@@ -194,15 +195,7 @@
   </div>
 
   <div class="card">
-    <h2>Nowy wpis</h2>
-    <label>
-      <span class="lbl">Ćwiczenie</span>
-      <select id="exSelect"></select>
-    </label>
-    <label id="newExWrap" class="hidden">
-      <span class="lbl">Nazwa nowego ćwiczenia</span>
-      <input id="newEx" type="text" placeholder="np. Przysiad ze sztangą">
-    </label>
+    <h2 id="formTitle">Nowy wpis</h2>
     <label>
       <span class="lbl">Data</span>
       <input id="date" type="date">
@@ -250,6 +243,7 @@ var BK = 'gym-last-backup';
 
 var entries = [];
 var active = null;
+var pending = null;   // nowo dodane ćwiczenie, które nie ma jeszcze żadnego wpisu
 
 /* Wpisy startowe dla świeżego telefonu (dane Kasi z notatki).
    Wgrywają się TYLKO wtedy, gdy urządzenie nie ma jeszcze żadnych danych. */
@@ -344,6 +338,7 @@ function plateColor(w) {
 function exercises() {
   var seen = {}, out = [];
   entries.forEach(function (e) { if (!seen[e.exercise]) { seen[e.exercise] = 1; out.push(e.exercise); } });
+  if (pending && !seen[pending]) out.push(pending);
   return out.sort();
 }
 function filtered() {
@@ -414,24 +409,23 @@ function render() {
   var exs = exercises();
   if (active === null || exs.indexOf(active) === -1) active = exs.length ? exs[exs.length - 1] : null;
 
-  // przełącznik ćwiczeń
-  var pw = document.getElementById('pickerWrap');
+  // lista ćwiczeń
   var pk = document.getElementById('picker');
   if (exs.length) {
-    pw.classList.remove('hidden');
     pk.innerHTML = exs.map(function (x) {
       return '<option' + (x === active ? ' selected' : '') + '>' + esc(x) + '</option>';
     }).join('');
+    pk.disabled = false;
   } else {
-    pw.classList.add('hidden');
+    pk.innerHTML = '<option>Brak ćwiczeń — dotknij ➕</option>';
+    pk.disabled = true;
   }
+  document.getElementById('renameBtn').disabled = !active;
 
-  // lista w formularzu
-  var sel = document.getElementById('exSelect');
-  sel.innerHTML = exs.map(function (x) {
-    return '<option' + (x === active ? ' selected' : '') + '>' + esc(x) + '</option>';
-  }).join('') + '<option value="__new__">+ Nowe ćwiczenie…</option>';
-  toggleNewEx();
+  // nagłówek formularza pokazuje, do czego dopisujesz
+  document.getElementById('formTitle').textContent =
+    active ? 'Nowy wpis — ' + active : 'Nowy wpis';
+  document.getElementById('addBtn').disabled = !active;
 
   var f = filtered();
   var last = f[f.length - 1], first = f[0];
@@ -482,11 +476,6 @@ function render() {
   }
 }
 
-function toggleNewEx() {
-  var isNew = document.getElementById('exSelect').value === '__new__';
-  document.getElementById('newExWrap').classList.toggle('hidden', !isNew);
-}
-
 /* ---------- akcje ---------- */
 function showMsg(id, text, ok) {
   var el = document.getElementById(id);
@@ -495,14 +484,11 @@ function showMsg(id, text, ok) {
 }
 
 document.getElementById('addBtn').addEventListener('click', function () {
-  var sel = document.getElementById('exSelect');
-  var name = sel.value === '__new__'
-    ? document.getElementById('newEx').value.trim()
-    : sel.value;
+  var name = active;
   var date = document.getElementById('date').value;
   var weight = parseFloat(document.getElementById('weight').value);
 
-  if (!name) { showMsg('formMsg', 'Podaj nazwę ćwiczenia.', false); return; }
+  if (!name) { showMsg('formMsg', 'Najpierw dodaj ćwiczenie przyciskiem ➕.', false); return; }
   if (!date) { showMsg('formMsg', 'Wybierz datę.', false); return; }
   if (!weight || weight <= 0) { showMsg('formMsg', 'Podaj ciężar w kg.', false); return; }
   if (weight > 1000) { showMsg('formMsg', 'To chyba pomyłka — sprawdź ciężar.', false); return; }
@@ -524,9 +510,26 @@ document.getElementById('addBtn').addEventListener('click', function () {
 
   if (!save()) { showMsg('formMsg', 'Nie udało się zapisać — sprawdź, czy przeglądarka nie blokuje danych.', false); return; }
 
+  if (pending === name) pending = null;
   document.getElementById('formMsg').className = 'msg hidden';
   document.getElementById('weight').value = '';
-  document.getElementById('newEx').value = '';
+  render();
+  renderBackupWarn();
+});
+
+document.getElementById('addExBtn').addEventListener('click', function () {
+  var nazwa = prompt('Nazwa nowego ćwiczenia:', '');
+  if (nazwa === null) return;
+  nazwa = nazwa.trim();
+  if (!nazwa) return;
+
+  if (exercises().indexOf(nazwa) !== -1) {
+    active = nazwa;   // już istnieje — po prostu je wybierz
+  } else {
+    pending = nazwa;
+    active = nazwa;
+  }
+  document.getElementById('formMsg').className = 'msg hidden';
   render();
 });
 
@@ -556,6 +559,14 @@ document.getElementById('renameBtn').addEventListener('click', function () {
 
   if (kolizja && !confirm('Ćwiczenie "' + nowa + '" już istnieje. Połączyć oba w jedno?')) return;
 
+  // ćwiczenie bez wpisów — wystarczy zmienić nazwę roboczą
+  if (pending === stara) {
+    pending = kolizja ? null : nowa;
+    active = nowa;
+    render();
+    return;
+  }
+
   // zmiana nazwy we wszystkich wpisach
   entries.forEach(function (e) { if (e.exercise === stara) e.exercise = nowa; });
 
@@ -583,7 +594,6 @@ document.getElementById('picker').addEventListener('change', function () {
   active = this.value;
   render();
 });
-document.getElementById('exSelect').addEventListener('change', toggleNewEx);
 
 /* eksport / import */
 function exportText() {
