@@ -80,7 +80,7 @@
     border-radius: 12px; padding: 14px; margin-bottom: 16px;
   }
 
-  select, input, textarea {
+  select, input {
     width: 100%; background: var(--field); border: 1px solid var(--field-line);
     border-radius: 8px; padding: 10px; color: var(--text);
     font-size: 16px; font-family: inherit; outline: none;
@@ -141,7 +141,6 @@
     background: var(--card); border: 1px dashed var(--line); border-radius: 12px;
   }
   .hint { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
-  textarea { min-height: 110px; font-size: 12px; font-family: ui-monospace, Menlo, monospace; resize: vertical; margin-bottom: 10px; }
   .msg { font-size: 12px; margin: 8px 0 0; }
   .ok { color: #2E9E5B; } .bad { color: #D7263D; }
   .hidden { display: none; }
@@ -213,24 +212,12 @@
 
   <h2 style="margin-top:22px">Kopia zapasowa</h2>
   <p class="hint hidden" id="backupWarn"></p>
-  <button class="primary" id="dlBtn" style="margin-bottom:8px">⬇ Zapisz kopię do pliku</button>
   <div class="row">
-    <button class="ghost" id="expBtn">Pokaż tekst</button>
-    <button class="ghost" id="impBtn">Przywróć</button>
+    <button class="primary" id="dlBtn" style="flex:1">⬇ Zapisz kopię</button>
+    <button class="ghost" id="impBtn">⬆ Wczytaj kopię</button>
   </div>
-
-  <div class="card hidden" id="expPanel" style="margin-top:10px">
-    <p class="hint">Skopiuj i zapisz w notatkach — to Twoja kopia zapasowa.</p>
-    <textarea id="expText" readonly></textarea>
-    <button class="ghost" id="copyBtn" style="width:100%">Kopiuj wszystko</button>
-  </div>
-
-  <div class="card hidden" id="impPanel" style="margin-top:10px">
-    <p class="hint">Wklej wcześniejszy eksport. Duplikaty zostaną pominięte.</p>
-    <textarea id="impText" placeholder="Wklej tutaj…"></textarea>
-    <button class="ghost" id="doImport" style="width:100%">Wczytaj dane</button>
-    <p class="msg hidden" id="impMsg"></p>
-  </div>
+  <input type="file" id="fileInput" accept=".txt,.json,text/plain,application/json" style="display:none">
+  <p class="msg hidden" id="impMsg"></p>
 
 </div>
 
@@ -238,30 +225,11 @@
 'use strict';
 
 var KEY = 'gym-entries';
-var SEED_DONE = 'gym-seed-done';
 var BK = 'gym-last-backup';
 
 var entries = [];
 var active = null;
 var pending = null;   // nowo dodane ćwiczenie, które nie ma jeszcze żadnego wpisu
-
-/* Wpisy startowe dla świeżego telefonu (dane Kasi z notatki).
-   Wgrywają się TYLKO wtedy, gdy urządzenie nie ma jeszcze żadnych danych. */
-var SEED = [
-  { exercise: 'Ciągnięcie w dół',  date: '2026-07-31', weight: 20 },
-  { exercise: 'Ciągnięcie w dół',  date: '2026-08-03', weight: 25 },
-  { exercise: 'Ciągnięcie w dół',  date: '2026-08-06', weight: 30 },
-  { exercise: 'Ciągnięcie w dół',  date: '2026-08-09', weight: 25 },
-  { exercise: 'Ciągnięcie na boki', date: '2026-07-31', weight: 15 },
-  { exercise: 'Ciągnięcie na boki', date: '2026-08-03', weight: 20 },
-  { exercise: 'Ciągnięcie na boki', date: '2026-08-06', weight: 25 },
-  { exercise: 'Ciągnięcie na boki', date: '2026-08-09', weight: 30 },
-  { exercise: 'Przysiady', date: '2026-08-09', weight: 20 },
-  { exercise: 'Hip thrust', date: '2026-08-06', weight: 10 },
-  { exercise: 'Hip thrust', date: '2026-08-09', weight: 15 },
-  { exercise: 'Wypychanie nogami siedząc', date: '2026-08-09', weight: 60 },
-  { exercise: 'Zginanie nóg na desce skośnej', date: '2026-08-09', weight: 15 }
-];
 
 /* ---------- przechowywanie ---------- */
 function readList(k) {
@@ -276,36 +244,20 @@ function setupStorage() {
   // dane już w docelowym miejscu — nic nie rób
   if (localStorage.getItem(KEY)) { cleanupOld(); return; }
 
-  // przeniesienie z poprzednich wersji apki (profile / pierwsza wersja)
+  // przeniesienie z poprzednich wersji apki
   var stare = readList('gym-entries-Daniel');
   if (!stare.length) stare = readList('gym-entries-Kasia');
   if (!stare.length) stare = readList('gym-entries-v1');
 
   if (stare.length) {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(stare));
-      localStorage.setItem(SEED_DONE, '1'); // nie dosypuj wpisów startowych
-    } catch (e) {}
-    cleanupOld();
-    return;
-  }
-
-  // czyste urządzenie: jednorazowo wgraj wpisy startowe
-  if (!localStorage.getItem(SEED_DONE)) {
-    var lista = SEED.map(function (e, i) {
-      return { id: 's' + i, exercise: e.exercise, date: e.date, weight: e.weight };
-    });
-    try {
-      localStorage.setItem(KEY, JSON.stringify(lista));
-      localStorage.setItem(SEED_DONE, '1');
-    } catch (e) {}
+    try { localStorage.setItem(KEY, JSON.stringify(stare)); } catch (e) {}
   }
   cleanupOld();
 }
 
 function cleanupOld() {
   ['gym-entries-Daniel', 'gym-entries-Kasia', 'gym-entries-v1',
-   'gym-current-user', 'gym-seed-kasia-v1',
+   'gym-current-user', 'gym-seed-kasia-v1', 'gym-seed-done',
    'gym-last-backup-Daniel', 'gym-last-backup-Kasia'].forEach(function (k) {
     try { localStorage.removeItem(k); } catch (e) {}
   });
@@ -654,34 +606,31 @@ document.getElementById('dlBtn').addEventListener('click', function () {
   markBackup();
 });
 
-document.getElementById('expBtn').addEventListener('click', function () {
-  var p = document.getElementById('expPanel');
-  document.getElementById('impPanel').classList.add('hidden');
-  p.classList.toggle('hidden');
-  document.getElementById('expText').value = exportText() || 'Brak danych do wyeksportowania.';
-});
 document.getElementById('impBtn').addEventListener('click', function () {
-  var p = document.getElementById('impPanel');
-  document.getElementById('expPanel').classList.add('hidden');
-  p.classList.toggle('hidden');
+  document.getElementById('impMsg').className = 'msg hidden';
+  document.getElementById('fileInput').click();
 });
-document.getElementById('copyBtn').addEventListener('click', function () {
-  var t = document.getElementById('expText');
-  t.select(); t.setSelectionRange(0, 999999);
-  var btn = this;
-  function done() { btn.textContent = 'Skopiowano'; setTimeout(function () { btn.textContent = 'Kopiuj wszystko'; }, 2000); }
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(t.value).then(done, function () { document.execCommand('copy'); done(); });
-  } else { document.execCommand('copy'); done(); }
+
+document.getElementById('fileInput').addEventListener('change', function () {
+  var plik = this.files && this.files[0];
+  if (!plik) return;
+
+  var czytnik = new FileReader();
+  czytnik.onload = function () { wczytajKopie(String(czytnik.result)); };
+  czytnik.onerror = function () { showMsg('impMsg', 'Nie udało się odczytać pliku.', false); };
+  czytnik.readAsText(plik);
+
+  this.value = ''; // pozwala wczytać ten sam plik ponownie
 });
-document.getElementById('doImport').addEventListener('click', function () {
-  var txt = document.getElementById('impText').value;
+
+function wczytajKopie(txt) {
   var a = txt.indexOf('['), b = txt.lastIndexOf(']');
-  if (a === -1 || b === -1) { showMsg('impMsg', 'Nie znaleziono danych w tym tekście.', false); return; }
+  if (a === -1 || b === -1) { showMsg('impMsg', 'To nie wygląda na kopię z tej apki.', false); return; }
+
   var parsed;
   try { parsed = JSON.parse(txt.slice(a, b + 1)); }
-  catch (e) { showMsg('impMsg', 'Dane są uszkodzone.', false); return; }
-  if (!Array.isArray(parsed)) { showMsg('impMsg', 'Nieprawidłowy format.', false); return; }
+  catch (e) { showMsg('impMsg', 'Plik jest uszkodzony.', false); return; }
+  if (!Array.isArray(parsed)) { showMsg('impMsg', 'Nieprawidłowy format pliku.', false); return; }
 
   var keyOf = function (e) { return e.exercise + '|' + e.date + '|' + e.weight; };
   var have = {};
@@ -696,13 +645,14 @@ document.getElementById('doImport').addEventListener('click', function () {
     added++;
   });
 
-  if (!added) { showMsg('impMsg', 'Wszystkie te wpisy już tu są.', true); return; }
+  if (!added) { showMsg('impMsg', 'Wszystkie wpisy z tej kopii już tu są.', true); return; }
+
   entries.sort(function (x, y) { return x.date.localeCompare(y.date); });
-  save();
-  document.getElementById('impText').value = '';
+  if (!save()) { showMsg('impMsg', 'Wczytano, ale nie udało się zapisać.', false); return; }
+
   showMsg('impMsg', 'Dodano ' + added + (added === 1 ? ' wpis.' : ' wpisów.'), true);
   render();
-});
+}
 
 /* ---------- start ---------- */
 document.getElementById('date').value = new Date().toISOString().slice(0, 10);
