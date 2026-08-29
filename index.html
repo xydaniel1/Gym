@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Dziennik treningowy</title>
 
+<!-- ============================================================
+     WERSJA PLIKU: 1.2   (2026-08-29)
+     Historia:
+       1.0 – wersja bazowa: wpisy, wykres, statystyki, kopie
+       1.1 – karta "Ostatni trening", lokalna data zamiast UTC
+       1.2 – lista wcześniejszych treningów, wersjonowanie pliku
+     Przy każdej zmianie podnieś numer i dopisz linię wyżej.
+     ============================================================ -->
+
 <!-- iOS: otwieranie na pełnym ekranie po dodaniu do ekranu głównego -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -136,6 +145,31 @@
   .info .d { font-size: 11.5px; color: var(--muted); }
   .del { background: transparent; color: var(--faint); padding: 6px; font-size: 18px; }
 
+  .sesshead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .sessdate { font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+  .sessago { font-size: 11.5px; color: var(--muted); font-weight: 600; flex-shrink: 0; }
+  .chips { display: flex; flex-direction: column; gap: 6px; }
+  .chip {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    background: var(--field); border: 1px solid var(--field-line);
+    border-radius: 8px; padding: 9px 11px; color: var(--text);
+    font-size: 13.5px; font-weight: 600; justify-content: flex-start; text-align: left;
+  }
+  .chip-on { border-color: var(--accent); }
+  .moreBtn {
+    width: 100%; margin-top: 10px; background: transparent;
+    border: 1px solid var(--line); color: var(--strong);
+    padding: 9px 0; font-size: 12.5px; font-weight: 600;
+  }
+  .prev { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .prevhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 7px; }
+  .prevhead .pd { font-size: 13px; font-weight: 700; }
+  .prevhead .pa { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+  .ver { text-align: center; font-size: 11px; color: var(--faint); margin: 24px 0 0; }
+  .chip .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .chip .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip .w { flex-shrink: 0; font-weight: 800; color: var(--strong); }
+
   .empty {
     text-align: center; padding: 28px 12px; color: var(--muted); font-size: 13px;
     background: var(--card); border: 1px dashed var(--line); border-radius: 12px;
@@ -163,6 +197,17 @@
       <p class="sub">Śledzenie obciążenia</p>
     </div>
   </header>
+
+  <div class="card hidden" id="sessionCard">
+    <h2>Ostatni trening</h2>
+    <div class="sesshead">
+      <div class="sessdate" id="sessDate"></div>
+      <div class="sessago" id="sessAgo"></div>
+    </div>
+    <div class="chips" id="sessList"></div>
+    <button class="moreBtn hidden" id="moreBtn"></button>
+    <div id="prevList"></div>
+  </div>
 
   <div id="pickerWrap" class="pickrow">
     <select id="picker"></select>
@@ -219,10 +264,14 @@
   <input type="file" id="fileInput" accept=".txt,.json,text/plain,application/json" style="display:none">
   <p class="msg hidden" id="impMsg"></p>
 
+  <p class="ver" id="ver"></p>
+
 </div>
 
 <script>
 'use strict';
+
+var APP_VERSION = '1.2';
 
 var KEY = 'gym-entries';
 var BK = 'gym-last-backup';
@@ -279,6 +328,21 @@ function save() {
 function fmtDate(iso) {
   var p = iso.split('-');
   return p[2] + '.' + p[1] + '.' + p[0].slice(2);
+}
+/* dzisiejsza data wg zegara telefonu, nie wg UTC */
+function todayISO() {
+  var d = new Date();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return d.getFullYear() + '-' + m + '-' + day;
+}
+function fmtLong(iso) {
+  var d = new Date(iso + 'T00:00:00');
+  var dni = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'];
+  var mies = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca',
+              'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
+  var rok = d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '';
+  return dni[d.getDay()] + ', ' + d.getDate() + ' ' + mies[d.getMonth()] + rok;
 }
 function plateColor(w) {
   if (w >= 100) return '#D7263D';
@@ -356,6 +420,99 @@ function drawChart(data) {
   return s;
 }
 
+/* ---------- ostatni trening ---------- */
+var MAX_PREV = 8;      // ile wcześniejszych treningów pokazać po rozwinięciu
+var prevOpen = false;  // czy lista wcześniejszych jest rozwinięta
+
+/* wszystkie treningi pogrupowane po dacie, od najnowszego */
+function sessions() {
+  var wg = {};
+  entries.forEach(function (e) {
+    var d = (wg[e.date] = wg[e.date] || {});
+    // po imporcie kopii może istnieć kilka wpisów tego samego ćwiczenia w jednym dniu
+    if (!d[e.exercise] || e.weight > d[e.exercise].weight) d[e.exercise] = e;
+  });
+
+  return Object.keys(wg).sort().reverse().map(function (dt) {
+    var items = Object.keys(wg[dt])
+      .sort(function (a, b) { return a.localeCompare(b, 'pl'); })
+      .map(function (k) { return wg[dt][k]; });
+    return { date: dt, items: items };
+  });
+}
+
+function chipHTML(e) {
+  return '<button class="chip' + (e.exercise === active ? ' chip-on' : '') + '" data-ex="' + esc(e.exercise) + '">' +
+    '<span class="dot" style="background:' + plateColor(e.weight) + '"></span>' +
+    '<span class="n">' + esc(e.exercise) + '</span>' +
+    '<span class="w">' + e.weight + ' kg</span>' +
+  '</button>';
+}
+
+function agoText(iso) {
+  var diff = dayNum(todayISO()) - dayNum(iso);
+  if (diff < 0) return 'zaplanowany';
+  if (diff === 0) return 'dzisiaj';
+  if (diff === 1) return 'wczoraj';
+  return diff + ' dni temu';
+}
+
+function renderLastSession() {
+  var card = document.getElementById('sessionCard');
+  var all = sessions();
+  if (!all.length) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+
+  var s = all[0];
+  document.getElementById('sessDate').textContent = fmtLong(s.date);
+  document.getElementById('sessAgo').textContent = agoText(s.date);
+  document.getElementById('sessList').innerHTML = s.items.map(chipHTML).join('');
+
+  // wcześniejsze treningi
+  var prev = all.slice(1, 1 + MAX_PREV);
+  var btn = document.getElementById('moreBtn');
+  var box = document.getElementById('prevList');
+
+  if (!prev.length) {
+    btn.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+
+  btn.classList.remove('hidden');
+  btn.textContent = prevOpen
+    ? 'Ukryj wcześniejsze ▴'
+    : 'Wcześniejsze treningi (' + (all.length - 1) + ') ▾';
+
+  if (!prevOpen) { box.innerHTML = ''; return; }
+
+  box.innerHTML = prev.map(function (p) {
+    return '<div class="prev">' +
+      '<div class="prevhead">' +
+        '<span class="pd">' + fmtLong(p.date) + '</span>' +
+        '<span class="pa">' + agoText(p.date) + '</span>' +
+      '</div>' +
+      '<div class="chips">' + p.items.map(chipHTML).join('') + '</div>' +
+    '</div>';
+  }).join('') +
+  (all.length - 1 > MAX_PREV
+    ? '<p class="hint" style="margin:12px 0 0;text-align:center">Starsze treningi znajdziesz w historii wybranego ćwiczenia.</p>'
+    : '');
+}
+
+document.getElementById('moreBtn').addEventListener('click', function () {
+  prevOpen = !prevOpen;
+  renderLastSession();
+});
+
+document.getElementById('sessionCard').addEventListener('click', function (ev) {
+  var b = ev.target.closest('.chip');
+  if (!b) return;
+  active = b.dataset.ex;
+  render();
+  document.getElementById('pickerWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
 /* ---------- renderowanie ---------- */
 function render() {
   var exs = exercises();
@@ -426,6 +583,8 @@ function render() {
       '</li>';
     }).join('') + '</ul>';
   }
+
+  renderLastSession();
 }
 
 /* ---------- akcje ---------- */
@@ -552,7 +711,7 @@ function exportText() {
   if (!entries.length) return '';
   var groups = {};
   entries.forEach(function (e) { (groups[e.exercise] = groups[e.exercise] || []).push(e); });
-  var out = 'DZIENNIK TRENINGOWY — ' + new Date().toLocaleDateString('pl-PL') + '\n\n';
+  var out = 'DZIENNIK TRENINGOWY (apka v' + APP_VERSION + ') — ' + new Date().toLocaleDateString('pl-PL') + '\n\n';
   Object.keys(groups).sort().forEach(function (k) {
     out += k + '\n';
     groups[k].forEach(function (e) { out += '  ' + e.date + '  ' + e.weight + ' kg\n'; });
@@ -655,7 +814,8 @@ function wczytajKopie(txt) {
 }
 
 /* ---------- start ---------- */
-document.getElementById('date').value = new Date().toISOString().slice(0, 10);
+document.getElementById('ver').textContent = 'Dziennik treningowy · wersja ' + APP_VERSION;
+document.getElementById('date').value = todayISO();
 setupStorage();
 load();
 render();
