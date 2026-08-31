@@ -6,11 +6,12 @@
 <title>Dziennik treningowy</title>
 
 <!-- ============================================================
-     WERSJA PLIKU: 1.2   (2026-08-29)
+     WERSJA PLIKU: 1.3   (2026-08-31)
      Historia:
        1.0 – wersja bazowa: wpisy, wykres, statystyki, kopie
        1.1 – karta "Ostatni trening", lokalna data zamiast UTC
        1.2 – lista wcześniejszych treningów, wersjonowanie pliku
+       1.3 – kolory oznaczają progresję (nie ciężar), delta kg przy wpisie
      Przy każdej zmianie podnieś numer i dopisz linię wyżej.
      ============================================================ -->
 
@@ -156,6 +157,12 @@
     font-size: 13.5px; font-weight: 600; justify-content: flex-start; text-align: left;
   }
   .chip-on { border-color: var(--accent); }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 4px 12px;
+    margin: 10px 0 0; font-size: 10.5px; color: var(--muted);
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .legend i { width: 7px; height: 7px; border-radius: 50%; display: block; }
   .moreBtn {
     width: 100%; margin-top: 10px; background: transparent;
     border: 1px solid var(--line); color: var(--strong);
@@ -168,6 +175,7 @@
   .ver { text-align: center; font-size: 11px; color: var(--faint); margin: 24px 0 0; }
   .chip .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
   .chip .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip .dl { flex-shrink: 0; font-size: 12px; font-weight: 700; }
   .chip .w { flex-shrink: 0; font-weight: 800; color: var(--strong); }
 
   .empty {
@@ -205,6 +213,12 @@
       <div class="sessago" id="sessAgo"></div>
     </div>
     <div class="chips" id="sessList"></div>
+    <p class="legend">
+      <span><i style="background:#2E9E5B"></i>więcej</span>
+      <span><i style="background:#1F6FEB"></i>tyle samo</span>
+      <span><i style="background:#D9822B"></i>mniej</span>
+      <span><i style="background:#8A8D93"></i>pierwszy raz</span>
+    </p>
     <button class="moreBtn hidden" id="moreBtn"></button>
     <div id="prevList"></div>
   </div>
@@ -271,7 +285,7 @@
 <script>
 'use strict';
 
-var APP_VERSION = '1.2';
+var APP_VERSION = '1.3';
 
 var KEY = 'gym-entries';
 var BK = 'gym-last-backup';
@@ -344,12 +358,52 @@ function fmtLong(iso) {
   var rok = d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '';
   return dni[d.getDay()] + ', ' + d.getDate() + ' ' + mies[d.getMonth()] + rok;
 }
-function plateColor(w) {
-  if (w >= 100) return '#D7263D';
-  if (w >= 60) return '#1F6FEB';
-  if (w >= 30) return '#F4C430';
-  if (w >= 10) return '#2E9E5B';
-  return '#B0B3B8';
+/* ---------- progresja względem poprzedniego razu ---------- */
+/* deltas['ćwiczenie|data'] = różnica kg wobec poprzedniej sesji tego ćwiczenia
+   (null = pierwszy raz, nie ma z czym porównać) */
+var deltas = {};
+
+function computeDeltas() {
+  deltas = {};
+  var byEx = {};
+
+  // jeden ciężar na ćwiczenie i dzień — po imporcie kopii może być ich kilka
+  entries.forEach(function (e) {
+    var m = (byEx[e.exercise] = byEx[e.exercise] || {});
+    if (m[e.date] === undefined || e.weight > m[e.date]) m[e.date] = e.weight;
+  });
+
+  Object.keys(byEx).forEach(function (ex) {
+    var prev = null;
+    Object.keys(byEx[ex]).sort().forEach(function (d) {
+      var w = byEx[ex][d];
+      deltas[ex + '|' + d] = prev === null ? null : Math.round((w - prev) * 10) / 10;
+      prev = w;
+    });
+  });
+}
+
+function deltaOf(ex, date) {
+  var v = deltas[ex + '|' + date];
+  return v === undefined ? null : v;
+}
+
+/* zielony w górę, niebieski bez zmian, bursztynowy w dół, szary pierwszy raz */
+function progColor(d) {
+  if (d === null) return '#8A8D93';
+  if (d > 0) return '#2E9E5B';
+  if (d < 0) return '#D9822B';
+  return '#1F6FEB';
+}
+
+/* czytelny kolor cyfry na kolorowym kółku */
+function discInk(d) {
+  return (d === null || d < 0) ? '#111113' : '#FFFFFF';
+}
+
+function deltaText(d) {
+  if (d === null || d === 0) return '';
+  return (d > 0 ? '+' : '−') + String(Math.abs(d)).replace('.', ',');
 }
 function exercises() {
   var seen = {}, out = [];
@@ -442,9 +496,12 @@ function sessions() {
 }
 
 function chipHTML(e) {
+  var d = deltaOf(e.exercise, e.date);
+  var dt = deltaText(d);
   return '<button class="chip' + (e.exercise === active ? ' chip-on' : '') + '" data-ex="' + esc(e.exercise) + '">' +
-    '<span class="dot" style="background:' + plateColor(e.weight) + '"></span>' +
+    '<span class="dot" style="background:' + progColor(d) + '"></span>' +
     '<span class="n">' + esc(e.exercise) + '</span>' +
+    (dt ? '<span class="dl" style="color:' + progColor(d) + '">' + dt + '</span>' : '') +
     '<span class="w">' + e.weight + ' kg</span>' +
   '</button>';
 }
@@ -515,6 +572,7 @@ document.getElementById('sessionCard').addEventListener('click', function (ev) {
 
 /* ---------- renderowanie ---------- */
 function render() {
+  computeDeltas();
   var exs = exercises();
   if (active === null || exs.indexOf(active) === -1) active = exs.length ? exs[exs.length - 1] : null;
 
@@ -576,9 +634,12 @@ function render() {
     h.innerHTML = '<div class="empty">Brak wpisów. Dodaj pierwszy trening powyżej.</div>';
   } else {
     h.innerHTML = '<ul>' + f.slice().reverse().map(function (e) {
+      var d = deltaOf(e.exercise, e.date), dt = deltaText(d);
+      var sub = fmtDate(e.date) +
+        (dt ? ' · <span style="color:' + progColor(d) + ';font-weight:700">' + dt + ' kg</span>' : '');
       return '<li>' +
-        '<div class="disc" style="background:' + plateColor(e.weight) + '">' + e.weight + '</div>' +
-        '<div class="info"><div class="m">' + e.weight + ' kg</div><div class="d">' + fmtDate(e.date) + '</div></div>' +
+        '<div class="disc" style="background:' + progColor(d) + ';color:' + discInk(d) + '">' + e.weight + '</div>' +
+        '<div class="info"><div class="m">' + e.weight + ' kg</div><div class="d">' + sub + '</div></div>' +
         '<button class="del" data-id="' + e.id + '">&#128465;</button>' +
       '</li>';
     }).join('') + '</ul>';
