@@ -6,7 +6,7 @@
 <title>Dziennik treningowy</title>
 
 <!-- ============================================================
-     WERSJA PLIKU: 1.7   (2026-09-01)
+     WERSJA PLIKU: 1.8   (2026-09-01)
      Historia:
        1.0 – wersja bazowa: wpisy, wykres, statystyki, kopie
        1.1 – karta "Ostatni trening", lokalna data zamiast UTC
@@ -24,6 +24,8 @@
              tylko na żądanie, pole ciężaru na całą szerokość;
              długie nazwy: podział "Partia - ćwiczenie", zawijanie do dwóch
              linii, wybór ćwiczenia z listy pogrupowanej po partiach
+       1.8 – karta ostatniego treningu zwijana: otwarta po wejściu, zamyka
+             się po pierwszym dzisiejszym wpisie; legenda tylko po rozwinięciu
      Przy każdej zmianie podnieś numer i dopisz linię wyżej.
      ============================================================ -->
 
@@ -137,6 +139,15 @@
     min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .shead h2 { flex-shrink: 0; }
+  button.shead {
+    width: 100%; background: none; border: none; padding: 0 2px;
+    font: inherit; color: inherit; cursor: pointer;
+  }
+  .shead .sumchev {
+    width: 13px; height: 13px; flex-shrink: 0; color: var(--ink-3);
+    transition: transform .18s ease;
+  }
+  .shead.open .sumchev { transform: rotate(180deg); }
 
   .panel {
     background: var(--panel);
@@ -477,11 +488,14 @@
 
   <!-- OSTATNI TRENING -->
   <section class="hidden" id="sessionSec">
-    <div class="shead">
+    <button class="shead" id="sessToggle" aria-expanded="true" aria-controls="sessBody">
       <h2 id="sessTitle">Ostatni trening</h2>
       <span class="meta" id="sessMeta"></span>
-    </div>
-    <div class="panel">
+      <svg class="sumchev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 8l5 5 5-5"/>
+      </svg>
+    </button>
+    <div class="panel" id="sessBody">
       <div class="rows" id="sessRows"></div>
       <p class="legend">
         <span><i style="background:var(--up)"></i>więcej</span>
@@ -569,7 +583,7 @@
 <script>
 'use strict';
 
-var APP_VERSION = '1.7';
+var APP_VERSION = '1.8';
 
 var KEY = 'gym-entries';
 var BK = 'gym-last-backup';
@@ -581,6 +595,7 @@ var deltas = {};
 var daysOpen = false;
 var MAX_DAYS = 8;
 var dateValue = null;    // wybrana data wpisu (ISO)
+var sessOpen = true;     // czy karta ostatniego treningu jest rozwinięta
 
 /* ---------- przechowywanie ---------- */
 function readList(k) {
@@ -883,6 +898,13 @@ function rowHTML(e, small) {
   '</button>';
 }
 
+/* "wczoraj · 3 ćwiczenia" — tyle wystarczy, gdy karta jest zwinięta */
+function sessSummary(s, ago) {
+  var n = s.items.length;
+  var slowo = n === 1 ? 'ćwiczenie' : (n < 5 ? 'ćwiczenia' : 'ćwiczeń');
+  return ago + ' · ' + n + ' ' + slowo;
+}
+
 function renderSessions() {
   var sec = document.getElementById('sessionSec');
   var all = sessions();
@@ -893,8 +915,14 @@ function renderSessions() {
   var ago = agoText(s.date);
   document.getElementById('sessTitle').textContent = 'Ostatni trening';
   var meta = document.getElementById('sessMeta');
-  meta.textContent = fmtLong(s.date) + ', ' + ago;
+  meta.textContent = sessOpen ? fmtLong(s.date) + ', ' + ago : sessSummary(s, ago);
   meta.className = 'meta' + (ago === 'dzisiaj' ? ' today' : '');
+
+  var toggle = document.getElementById('sessToggle');
+  toggle.classList.toggle('open', sessOpen);
+  toggle.setAttribute('aria-expanded', sessOpen ? 'true' : 'false');
+  document.getElementById('sessBody').classList.toggle('hidden', !sessOpen);
+  if (!sessOpen) return;
 
   document.getElementById('sessRows').innerHTML = s.items.map(function (e) { return rowHTML(e); }).join('');
 
@@ -924,6 +952,11 @@ function renderSessions() {
 
 document.getElementById('expandBtn').addEventListener('click', function () {
   daysOpen = !daysOpen;
+  renderSessions();
+});
+
+document.getElementById('sessToggle').addEventListener('click', function () {
+  sessOpen = !sessOpen;
   renderSessions();
 });
 
@@ -1096,8 +1129,11 @@ document.getElementById('saveBtn').addEventListener('click', function () {
 
   var dup = entries.filter(function (e) { return e.exercise === name && e.date === date; })[0];
 
+  var pierwszyDzis = !entries.some(function (e) { return e.date === todayISO(); });
+
   var go = function () {
     if (!save()) { showErr('Nie udało się zapisać. Sprawdź, czy przeglądarka nie blokuje danych.'); return; }
+    if (pierwszyDzis && date === todayISO()) sessOpen = false;
     if (pending === name) pending = null;
     showErr('');
     document.getElementById('weight').value = '';
@@ -1348,6 +1384,7 @@ setDate(todayISO());
 document.getElementById('weight').addEventListener('input', function () { showErr(''); });
 setupStorage();
 load();
+sessOpen = !entries.some(function (e) { return e.date === todayISO(); });
 render();
 renderBackupInfo();
 </script>
