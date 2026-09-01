@@ -6,7 +6,7 @@
 <title>Dziennik treningowy</title>
 
 <!-- ============================================================
-     WERSJA PLIKU: 1.8   (2026-09-01)
+     WERSJA PLIKU: 1.9   (2026-09-01)
      Historia:
        1.0 – wersja bazowa: wpisy, wykres, statystyki, kopie
        1.1 – karta "Ostatni trening", lokalna data zamiast UTC
@@ -26,6 +26,8 @@
              linii, wybór ćwiczenia z listy pogrupowanej po partiach
        1.8 – karta ostatniego treningu zwijana: otwarta po wejściu, zamyka
              się po pierwszym dzisiejszym wpisie; legenda tylko po rozwinięciu
+       1.9 – ostatni trening na samej górze: po wejściu widzisz go pierwszy,
+             po pierwszym wpisie zwija się do linijki i formularz wraca na wierzch
      Przy każdej zmianie podnieś numer i dopisz linię wyżej.
      ============================================================ -->
 
@@ -419,6 +421,33 @@
     <h1 class="brand">Dziennik treningowy</h1>
   </header>
 
+  <!-- OSTATNI TRENING -->
+  <section class="hidden" id="sessionSec">
+    <button class="shead" id="sessToggle" aria-expanded="true" aria-controls="sessBody">
+      <h2 id="sessTitle">Ostatni trening</h2>
+      <span class="meta" id="sessMeta"></span>
+      <svg class="sumchev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 8l5 5 5-5"/>
+      </svg>
+    </button>
+    <div class="panel" id="sessBody">
+      <div class="rows" id="sessRows"></div>
+      <p class="legend">
+        <span><i style="background:var(--up)"></i>więcej</span>
+        <span><i style="background:var(--flat)"></i>tyle samo</span>
+        <span><i style="background:var(--down)"></i>mniej</span>
+        <span><i class="hollow"></i>pierwszy raz</span>
+      </p>
+      <button class="expand hidden" id="expandBtn">
+        <span id="expandTxt"></span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 8l5 5 5-5"/>
+        </svg>
+      </button>
+      <div id="dayList"></div>
+    </div>
+  </section>
+
   <!-- FORMULARZ -->
   <section>
     <div class="panel blank hidden" id="firstRun">
@@ -483,33 +512,6 @@
 
       <button class="save" id="saveBtn">Zapisz</button>
       <p class="err hidden" id="formErr"></p>
-    </div>
-  </section>
-
-  <!-- OSTATNI TRENING -->
-  <section class="hidden" id="sessionSec">
-    <button class="shead" id="sessToggle" aria-expanded="true" aria-controls="sessBody">
-      <h2 id="sessTitle">Ostatni trening</h2>
-      <span class="meta" id="sessMeta"></span>
-      <svg class="sumchev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M5 8l5 5 5-5"/>
-      </svg>
-    </button>
-    <div class="panel" id="sessBody">
-      <div class="rows" id="sessRows"></div>
-      <p class="legend">
-        <span><i style="background:var(--up)"></i>więcej</span>
-        <span><i style="background:var(--flat)"></i>tyle samo</span>
-        <span><i style="background:var(--down)"></i>mniej</span>
-        <span><i class="hollow"></i>pierwszy raz</span>
-      </p>
-      <button class="expand hidden" id="expandBtn">
-        <span id="expandTxt"></span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 8l5 5 5-5"/>
-        </svg>
-      </button>
-      <div id="dayList"></div>
     </div>
   </section>
 
@@ -583,7 +585,7 @@
 <script>
 'use strict';
 
-var APP_VERSION = '1.8';
+var APP_VERSION = '1.9';
 
 var KEY = 'gym-entries';
 var BK = 'gym-last-backup';
@@ -965,8 +967,8 @@ document.getElementById('sessionSec').addEventListener('click', function (ev) {
   if (!b) return;
   active = b.dataset.ex;
   render();
+  document.getElementById('composePanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
   document.getElementById('weight').focus();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
 /* ---------- widok główny ---------- */
