@@ -6,293 +6,522 @@
 <title>Dziennik treningowy</title>
 
 <!-- ============================================================
-     WERSJA PLIKU: 1.3   (2026-08-31)
+     WERSJA PLIKU: 1.6   (2026-09-01)
      Historia:
        1.0 – wersja bazowa: wpisy, wykres, statystyki, kopie
        1.1 – karta "Ostatni trening", lokalna data zamiast UTC
        1.2 – lista wcześniejszych treningów, wersjonowanie pliku
        1.3 – kolory oznaczają progresję (nie ciężar), delta kg przy wpisie
+       1.4 – przebudowa layoutu (formularz na górze), sygnet Seebeck,
+             paleta z logo, ikony SVG zamiast emoji, własne okna dialogowe,
+             przycisk "powtórz ciężar", pola data+ciężar obok siebie
+       1.5 – lista rozwijana ćwiczeń zamiast przycisku cyklującego,
+             zaokrąglone podziałki wykresu, ekran powitalny, jeden
+             wyróżniony przycisk na ekranie, wyrównanie kolumn historii
+       1.6 – podpisy kolumn w "Postępie", skalowanie liczb na wąskich
+             ekranach, skracanie długich nazw w nagłówkach sekcji
      Przy każdej zmianie podnieś numer i dopisz linię wyżej.
      ============================================================ -->
 
-<!-- iOS: otwieranie na pełnym ekranie po dodaniu do ekranu głównego -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Dziennik">
-<meta name="theme-color" content="#F6F5F2" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111113" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F4F2EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101113" media="(prefers-color-scheme: dark)">
 
-<!-- Ikona na ekranie głównym: talerze olimpijskie -->
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23111113'/%3E%3Ccircle cx='90' cy='90' r='62' fill='%23D7263D'/%3E%3Ccircle cx='90' cy='90' r='44' fill='%231F6FEB'/%3E%3Ccircle cx='90' cy='90' r='26' fill='%23F4C430'/%3E%3C/svg%3E">
+<!-- Ikona na ekranie głównym: sygnet Seebeck -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='-26%20-26%2052%2052'%3E%3Crect%20x='-26'%20y='-26'%20width='52'%20height='52'%20fill='%23FFFFFF'/%3E%3Cpolygon%20points='14,-21.5%20-17.5,-21.5%20-17.5,4.5%200,4.5%200,-6.5%20-6.5,-6.5%20-6.5,-10.5%2014,-10.5'%20fill='%23D85A30'/%3E%3Cpolygon%20points='3,-6.5%2017.5,-6.5%2017.5,21.5%20-14,21.5%20-14,10.5%206.5,10.5%206.5,4.5%203,4.5'%20fill='%23185FA5'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='-26%20-26%2052%2052'%3E%3Cpolygon%20points='14,-21.5%20-17.5,-21.5%20-17.5,4.5%200,4.5%200,-6.5%20-6.5,-6.5%20-6.5,-10.5%2014,-10.5'%20fill='%23D85A30'/%3E%3Cpolygon%20points='3,-6.5%2017.5,-6.5%2017.5,21.5%20-14,21.5%20-14,10.5%206.5,10.5%206.5,4.5%203,4.5'%20fill='%23185FA5'/%3E%3C/svg%3E">
 
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #111113;
-    --card: #1C1C1E;
-    --line: #2A2A2D;
-    --field: #111113;
-    --field-line: #33343A;
-    --text: #F2F0EB;
-    --muted: #8A8D93;
-    --strong: #C9CBCF;
-    --grid: #2E2E32;
-    --faint: #5A5D63;
-    --accent: #F4C430;
-    --on-accent: #111113;
+
+    /* powierzchnie */
+    --paper: #F4F2EE;
+    --panel: #FFFFFF;
+    --sunk: #F7F6F3;
+    --rule: #E4E0D9;
+    --hair: #EDEAE4;
+
+    /* tekst */
+    --ink: #16181B;
+    --ink-2: #4A4F55;
+    --ink-3: #797F86;
+
+    /* z sygnetu */
+    --signal: #185FA5;
+    --signal-soft: rgba(24, 95, 165, .09);
+    --on-signal: #FFFFFF;
+    --ember: #D85A30;
+
+    /* dane: progresja */
+    --up: #2F8F5F;
+    --flat: #7A828C;
+    --down: #B87418;
+    --danger: #C0392B;
+
+    --shadow: 0 1px 2px rgba(20, 22, 26, .05);
   }
 
-  @media (prefers-color-scheme: light) {
+  @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #F6F5F2;
-      --card: #FFFFFF;
-      --line: #E3E1DC;
-      --field: #FBFAF8;
-      --field-line: #D6D3CC;
-      --text: #1A1A1C;
-      --muted: #6E7278;
-      --strong: #43474C;
-      --grid: #E8E6E1;
-      --faint: #A8ABB0;
-      --accent: #E0A800;
-      --on-accent: #1A1A1C;
+      --paper: #101113;
+      --panel: #1A1C1F;
+      --sunk: #141619;
+      --rule: #2A2D32;
+      --hair: #24272B;
+
+      --ink: #ECEAE6;
+      --ink-2: #B4B9BF;
+      --ink-3: #868C93;
+
+      --signal: #55A0E4;
+      --signal-soft: rgba(85, 160, 228, .13);
+      --on-signal: #0C1219;
+      --ember: #E97A4E;
+
+      --up: #46B37D;
+      --flat: #8B9198;
+      --down: #D69A3E;
+      --danger: #E06B5D;
+
+      --shadow: none;
     }
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
   body {
     margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
-    padding: max(20px, env(safe-area-inset-top)) 14px calc(40px + env(safe-area-inset-bottom));
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    padding: max(18px, env(safe-area-inset-top)) 16px calc(48px + env(safe-area-inset-bottom));
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 480px; margin: 0 auto; }
 
-  header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-  .plates { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
-  .plates i {
-    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
-    border-radius: 50%; display: block;
-    box-shadow: inset 0 0 0 2px rgba(0,0,0,.25);
-  }
-  h1 { font-size: 21px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
-  .sub { font-size: 12.5px; color: var(--muted); margin: 2px 0 0; }
+  .wrap { max-width: 460px; margin: 0 auto; }
 
-  h2 {
-    font-size: 12.5px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .05em; color: var(--strong); margin: 0 0 10px 2px;
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+  :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+  input:focus-visible, select:focus-visible { outline: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
   }
 
-  .card {
-    background: var(--card); border: 1px solid var(--line);
-    border-radius: 12px; padding: 14px; margin-bottom: 16px;
+  /* ---------- nagłówek ---------- */
+  header { display: flex; align-items: center; gap: 11px; margin: 0 0 22px; }
+  .mark { width: 30px; height: 30px; flex-shrink: 0; display: block; }
+  .brand { font-size: 17px; font-weight: 700; letter-spacing: -.015em; margin: 0; }
+
+  /* ---------- sekcje ---------- */
+  section { margin: 0 0 26px; }
+  .shead {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 10px; margin: 0 0 10px; padding: 0 2px;
+  }
+  .shead h2 { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 0; letter-spacing: -.005em; }
+  .shead .meta {
+    font-size: 12px; color: var(--ink-3);
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .shead h2 { flex-shrink: 0; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
   }
 
-  select, input {
-    width: 100%; background: var(--field); border: 1px solid var(--field-line);
-    border-radius: 8px; padding: 10px; color: var(--text);
-    font-size: 16px; font-family: inherit; outline: none;
+  /* ---------- formularz (bohater ekranu) ---------- */
+  .compose { padding: 14px 15px 15px; }
+
+  .exbar { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .expick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
+  select.exname {
+    width: auto; max-width: 100%; background: none; border: none; padding: 0;
+    box-shadow: none; border-radius: 0;
+    font: inherit; font-size: 19px; font-weight: 700; letter-spacing: -.02em;
+    color: var(--ink); text-overflow: ellipsis;
+  }
+  select.exname:focus { background: none; box-shadow: none; }
+  .chev { width: 13px; height: 13px; flex-shrink: 0; color: var(--ink-3); }
+  .iconbtn {
+    flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px;
+    background: var(--sunk); border: 1px solid var(--rule); color: var(--ink-2);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+  }
+  .iconbtn:disabled { opacity: .4; }
+  .iconbtn svg { width: 17px; height: 17px; }
+
+  .lastline { font-size: 12.5px; color: var(--ink-3); margin: 0 0 12px; min-height: 18px; }
+  .lastline b { color: var(--ink-2); font-weight: 600; }
+
+  .fields { display: flex; gap: 9px; }
+  .fields label { flex: 1.12; min-width: 0; display: block; }
+  .fields .wfield { flex: 1; }
+  .cap { display: block; font-size: 11.5px; color: var(--ink-3); margin: 0 0 5px 2px; }
+
+  input, select {
+    width: 100%; font: inherit; font-size: 16px; color: var(--ink);
+    background: var(--sunk); border: 1px solid var(--rule);
+    border-radius: 10px; padding: 11px 12px; outline: none;
     -webkit-appearance: none; appearance: none;
   }
-  select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238A8D93' stroke-width='2' fill='none'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
+  input:focus, select:focus {
+    border-color: var(--signal); background: var(--panel);
+    box-shadow: 0 0 0 3px var(--signal-soft);
   }
-  input[type=date] { min-height: 42px; }
-  label { display: block; margin-bottom: 10px; }
-  .lbl { display: block; font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+  input[type=date] { min-height: 45px; }
+  .winput { position: relative; }
+  .winput input { padding-right: 38px; font-weight: 700; }
 
-  button {
-    font-family: inherit; font-size: 14px; font-weight: 700;
-    border: none; border-radius: 8px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
+  /* bardzo wąskie telefony: odzyskaj miejsce w polach, nie ruszając rozmiaru fontu
+     (16px chroni przed automatycznym powiększaniem na iOS) */
+  @media (max-width: 360px) {
+    body { padding-left: 12px; padding-right: 12px; }
+    .compose { padding: 13px 12px 14px; }
+    input, select { padding-left: 9px; padding-right: 9px; }
+    .winput input { padding-right: 34px; }
   }
-  .primary { width: 100%; background: var(--accent); color: var(--on-accent); padding: 12px 0; }
-  .primary:disabled { opacity: .5; }
-  .ghost {
-    flex: 1; background: var(--card); border: 1px solid var(--line);
-    color: var(--strong); padding: 11px 0; font-weight: 600; font-size: 13px;
-  }
-  .row { display: flex; gap: 8px; }
-
-  .pickrow { display: flex; gap: 8px; margin-bottom: 10px; align-items: stretch; }
-  .pickrow select { flex: 1; min-width: 0; }
-  .iconbtn {
-    flex-shrink: 0; width: 46px; background: var(--card);
-    border: 1px solid var(--field-line); color: var(--strong); font-size: 16px;
+  .winput .unit {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 13px; color: var(--ink-3); pointer-events: none;
   }
 
-  .stats { display: flex; gap: 7px; margin-bottom: 16px; }
-  .stat { flex: 1; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 9px; }
-  .stat .k { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .stat .v { font-size: 17px; font-weight: 800; margin: 3px 0; white-space: nowrap; }
-  .stat .s { font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  li {
-    display: flex; align-items: center; gap: 12px;
-    background: var(--card); border: 1px solid var(--line);
-    border-radius: 10px; padding: 10px 12px;
+  .repeat {
+    margin: 9px 0 0; padding: 7px 11px; border-radius: 8px;
+    background: var(--signal-soft); border: none; color: var(--signal);
+    font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  .disc {
-    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 9px; font-weight: 800; color: #111113;
-  }
-  .info { flex: 1; min-width: 0; }
-  .info .m { font-size: 14px; font-weight: 700; }
-  .info .d { font-size: 11.5px; color: var(--muted); }
-  .del { background: transparent; color: var(--faint); padding: 6px; font-size: 18px; }
+  .repeat svg { width: 13px; height: 13px; }
 
-  .sesshead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-  .sessdate { font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
-  .sessago { font-size: 11.5px; color: var(--muted); font-weight: 600; flex-shrink: 0; }
-  .chips { display: flex; flex-direction: column; gap: 6px; }
-  .chip {
+  .save {
+    width: 100%; margin-top: 13px; padding: 14px 0; border: none; border-radius: 11px;
+    background: var(--signal); color: var(--on-signal);
+    font: inherit; font-size: 15.5px; font-weight: 700; cursor: pointer;
+  }
+  .save:disabled { background: var(--rule); color: var(--ink-3); }
+
+  .err { font-size: 12.5px; color: var(--danger); margin: 9px 0 0; }
+
+  /* ---------- wiersze ćwiczeń ---------- */
+  .rows { padding: 4px 15px; }
+  .exrow {
     width: 100%; display: flex; align-items: center; gap: 10px;
-    background: var(--field); border: 1px solid var(--field-line);
-    border-radius: 8px; padding: 9px 11px; color: var(--text);
-    font-size: 13.5px; font-weight: 600; justify-content: flex-start; text-align: left;
+    background: none; border: none; border-top: 1px solid var(--hair);
+    padding: 11px 0; font: inherit; color: var(--ink); cursor: pointer; text-align: left;
   }
-  .chip-on { border-color: var(--accent); }
+  .exrow:first-child { border-top: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.hollow { background: none; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+  .exrow .n {
+    flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .exrow .dl { flex-shrink: 0; font-size: 12.5px; font-weight: 700; }
+  .exrow .w { flex-shrink: 0; font-size: 14.5px; font-weight: 700; min-width: 68px; text-align: right; }
+  .exrow.on .n { color: var(--signal); }
+
   .legend {
-    display: flex; flex-wrap: wrap; gap: 4px 12px;
-    margin: 10px 0 0; font-size: 10.5px; color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: 3px 14px;
+    padding: 10px 15px 12px; margin: 0;
+    border-top: 1px solid var(--hair);
+    font-size: 11px; color: var(--ink-3);
   }
   .legend span { display: flex; align-items: center; gap: 5px; }
-  .legend i { width: 7px; height: 7px; border-radius: 50%; display: block; }
-  .moreBtn {
-    width: 100%; margin-top: 10px; background: transparent;
-    border: 1px solid var(--line); color: var(--strong);
-    padding: 9px 0; font-size: 12.5px; font-weight: 600;
-  }
-  .prev { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
-  .prevhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 7px; }
-  .prevhead .pd { font-size: 13px; font-weight: 700; }
-  .prevhead .pa { font-size: 11px; color: var(--muted); flex-shrink: 0; }
-  .ver { text-align: center; font-size: 11px; color: var(--faint); margin: 24px 0 0; }
-  .chip .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .chip .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .chip .dl { flex-shrink: 0; font-size: 12px; font-weight: 700; }
-  .chip .w { flex-shrink: 0; font-weight: 800; color: var(--strong); }
+  .legend i { width: 6px; height: 6px; border-radius: 50%; display: block; }
+  .legend i.hollow { box-shadow: inset 0 0 0 1.5px var(--ink-3); }
 
-  .empty {
-    text-align: center; padding: 28px 12px; color: var(--muted); font-size: 13px;
-    background: var(--card); border: 1px dashed var(--line); border-radius: 12px;
+  .expand {
+    width: 100%; padding: 12px 0; border: none; border-top: 1px solid var(--hair);
+    background: none; color: var(--signal); font: inherit; font-size: 13px;
+    font-weight: 600; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 6px; border-radius: 0 0 13px 13px;
   }
-  .hint { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
-  .msg { font-size: 12px; margin: 8px 0 0; }
-  .ok { color: #2E9E5B; } .bad { color: #D7263D; }
-  .hidden { display: none; }
-  svg text { font-size: 10px; fill: var(--muted); }
-  svg .grid { stroke: var(--grid); }
-  svg .last { fill: var(--accent); font-weight: 700; }
+  .expand svg { width: 13px; height: 13px; transition: transform .18s ease; }
+  .expand.open svg { transform: rotate(180deg); }
+
+  .daygroup { border-top: 1px solid var(--rule); padding: 11px 15px 4px; }
+  .dayhead {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 10px; margin-bottom: 2px;
+  }
+  .dayhead .dd { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+  .dayhead .da { font-size: 11.5px; color: var(--ink-3); flex-shrink: 0; }
+  .daygroup .exrow { padding: 9px 0; }
+  .daygroup .exrow .n, .daygroup .exrow .w { font-size: 13.5px; }
+
+  .today { color: var(--ember); font-weight: 600; }
+
+  /* ---------- statystyki ---------- */
+  .figures { display: flex; align-items: stretch; padding: 13px 3px; }
+  .fig { flex: 1; min-width: 0; padding: 0 9px; border-left: 1px solid var(--hair); text-align: left; }
+  .fig:first-child { border-left: none; }
+  .fig .k { font-size: 11px; color: var(--ink-3); margin-bottom: 1px; }
+  .fig .v {
+    font-size: clamp(15px, 4.7vw, 19px); font-weight: 700;
+    letter-spacing: -.02em; white-space: nowrap;
+  }
+
+  /* ---------- wykres ---------- */
+  .chartbox { padding: 6px 10px 10px; border-top: 1px solid var(--hair); }
+  svg.plot text { font-size: 10px; fill: var(--ink-3); font-variant-numeric: tabular-nums; }
+  svg.plot .gridline { stroke: var(--hair); stroke-width: 1; }
+  svg.plot .tip { fill: var(--signal); font-weight: 700; }
+
+  /* ---------- historia ---------- */
+  .hrow {
+    display: flex; align-items: center; gap: 11px;
+    padding: 11px 15px; border-top: 1px solid var(--hair);
+  }
+  .hrow:first-child { border-top: none; }
+  .hrow .hw { font-size: 15px; font-weight: 700; min-width: 76px; }
+  .hrow .hd { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink-3); }
+  .hrow .hdl { font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+  .del {
+    flex-shrink: 0; width: 30px; height: 30px; border: none; background: none;
+    color: var(--ink-3); display: flex; align-items: center; justify-content: center;
+    padding: 0; cursor: pointer; border-radius: 8px;
+  }
+  .del svg { width: 15px; height: 15px; }
+
+  /* ---------- kopia ---------- */
+  .backup { padding: 14px 15px; }
+  .backup p { margin: 0 0 11px; font-size: 12.5px; color: var(--ink-3); }
+  .btnrow { display: flex; gap: 9px; }
+  .btn {
+    flex: 1; padding: 11px 0; border-radius: 10px; font: inherit;
+    font-size: 13.5px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .btn svg { width: 15px; height: 15px; }
+  .btn.line { background: var(--sunk); border: 1px solid var(--rule); color: var(--ink); }
+  .btn:disabled { opacity: .45; }
+  .note { font-size: 12.5px; margin: 10px 0 0; }
+  .note.good { color: var(--up); }
+  .note.bad { color: var(--danger); }
+
+  /* ---------- puste stany ---------- */
+  .blank { padding: 28px 20px; text-align: center; }
+  .blank .mark { width: 26px; height: 26px; margin: 0 auto 12px; }
+  .blank p { margin: 0 auto; max-width: 30ch; font-size: 13.5px; color: var(--ink-3); }
+  .blank .save { max-width: 210px; margin: 16px auto 0; }
+
+  /* ---------- stopka ---------- */
+  footer {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    margin-top: 30px; font-size: 11.5px; color: var(--ink-3);
+  }
+
+  /* ---------- okno dialogowe ---------- */
+  .veil {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(16, 17, 19, .5);
+    display: flex; align-items: center; justify-content: center;
+    padding: 22px;
+    animation: fade .14s ease;
+  }
+  @keyframes fade { from { opacity: 0 } }
+  .modal {
+    width: 100%; max-width: 340px; background: var(--panel);
+    border: 1px solid var(--rule); border-radius: 16px; padding: 18px;
+    animation: rise .16s ease;
+  }
+  @keyframes rise { from { transform: translateY(8px); opacity: 0 } }
+  .modal h3 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+  .modal p { margin: 7px 0 0; font-size: 13.5px; color: var(--ink-2); }
+  .modal input { margin-top: 13px; }
+  .modalrow { display: flex; gap: 9px; margin-top: 16px; }
+  .modalrow .btn { padding: 11px 0; }
+  .btn.solid { background: var(--signal); color: var(--on-signal); border: none; }
+  .btn.warn { background: var(--danger); color: #FFFFFF; border: none; }
+
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <header>
-    <div class="plates">
-      <i style="width:40px;height:40px;background:#D7263D"></i>
-      <i style="width:28px;height:28px;background:#1F6FEB"></i>
-      <i style="width:16px;height:16px;background:#F4C430"></i>
-    </div>
-    <div>
-      <h1>Dziennik treningowy</h1>
-      <p class="sub">Śledzenie obciążenia</p>
-    </div>
+    <svg class="mark" viewBox="-26 -26 52 52" aria-hidden="true">
+      <polygon points="14,-21.5 -17.5,-21.5 -17.5,4.5 0,4.5 0,-6.5 -6.5,-6.5 -6.5,-10.5 14,-10.5" fill="#D85A30"/>
+      <polygon points="3,-6.5 17.5,-6.5 17.5,21.5 -14,21.5 -14,10.5 6.5,10.5 6.5,4.5 3,4.5" fill="#185FA5"/>
+    </svg>
+    <h1 class="brand">Dziennik treningowy</h1>
   </header>
 
-  <div class="card hidden" id="sessionCard">
-    <h2>Ostatni trening</h2>
-    <div class="sesshead">
-      <div class="sessdate" id="sessDate"></div>
-      <div class="sessago" id="sessAgo"></div>
+  <!-- FORMULARZ -->
+  <section>
+    <div class="panel blank hidden" id="firstRun">
+      <svg class="mark" viewBox="-26 -26 52 52" aria-hidden="true">
+        <polygon points="14,-21.5 -17.5,-21.5 -17.5,4.5 0,4.5 0,-6.5 -6.5,-6.5 -6.5,-10.5 14,-10.5" fill="#D85A30"/>
+        <polygon points="3,-6.5 17.5,-6.5 17.5,21.5 -14,21.5 -14,10.5 6.5,10.5 6.5,4.5 3,4.5" fill="#185FA5"/>
+      </svg>
+      <p>Zacznij od jednego ćwiczenia. Potem zapisanie serii to dwa dotknięcia.</p>
+      <button class="save" id="firstBtn">Dodaj ćwiczenie</button>
     </div>
-    <div class="chips" id="sessList"></div>
-    <p class="legend">
-      <span><i style="background:#2E9E5B"></i>więcej</span>
-      <span><i style="background:#1F6FEB"></i>tyle samo</span>
-      <span><i style="background:#D9822B"></i>mniej</span>
-      <span><i style="background:#8A8D93"></i>pierwszy raz</span>
-    </p>
-    <button class="moreBtn hidden" id="moreBtn"></button>
-    <div id="prevList"></div>
-  </div>
+    <div class="panel compose" id="composePanel">
+      <div class="exbar">
+        <div class="expick">
+          <select class="exname" id="exPick" aria-label="Wybrane ćwiczenie"></select>
+          <svg class="chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 8l5 5 5-5"/>
+          </svg>
+        </div>
+        <button class="iconbtn" id="renameBtn" aria-label="Zmień nazwę ćwiczenia">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3.5 16.5h3.1l8.2-8.2a1.5 1.5 0 0 0 0-2.2l-.9-.9a1.5 1.5 0 0 0-2.2 0L3.5 13.4v3.1z"/>
+          </svg>
+        </button>
+        <button class="iconbtn" id="addExBtn" aria-label="Dodaj nowe ćwiczenie">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+            <path d="M10 4.5v11M4.5 10h11"/>
+          </svg>
+        </button>
+      </div>
 
-  <div id="pickerWrap" class="pickrow">
-    <select id="picker"></select>
-    <button class="iconbtn" id="addExBtn" aria-label="Dodaj nowe ćwiczenie">➕</button>
-    <button class="iconbtn" id="renameBtn" aria-label="Zmień nazwę ćwiczenia">✏️</button>
-  </div>
+      <p class="lastline num" id="lastLine"></p>
 
-  <div class="stats hidden" id="stats">
-    <div class="stat">
-      <div class="k">Ostatnio</div>
-      <div class="v" id="statLast">–</div>
-      <div class="s" id="statDate"></div>
+      <div class="fields">
+        <label>
+          <span class="cap">Data</span>
+          <input id="date" type="date">
+        </label>
+        <label class="wfield">
+          <span class="cap">Ciężar</span>
+          <span class="winput">
+            <input id="weight" class="num" type="number" inputmode="decimal" step="0.5" min="0" placeholder="0">
+            <span class="unit">kg</span>
+          </span>
+        </label>
+      </div>
+
+      <button class="repeat hidden" id="repeatBtn">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 8a6 6 0 1 0-.6 4.5"/><path d="M16 3.5V8h-4.5"/>
+        </svg>
+        <span id="repeatTxt"></span>
+      </button>
+
+      <button class="save" id="saveBtn">Zapisz</button>
+      <p class="err hidden" id="formErr"></p>
     </div>
-    <div class="stat">
-      <div class="k">Rekord</div>
-      <div class="v" id="statBest">–</div>
-      <div class="s" id="statBestDate"></div>
+  </section>
+
+  <!-- OSTATNI TRENING -->
+  <section class="hidden" id="sessionSec">
+    <div class="shead">
+      <h2 id="sessTitle">Ostatni trening</h2>
+      <span class="meta" id="sessMeta"></span>
     </div>
-    <div class="stat">
-      <div class="k">Progresja</div>
-      <div class="v" id="statDelta">–</div>
-      <div class="s">od początku</div>
+    <div class="panel">
+      <div class="rows" id="sessRows"></div>
+      <p class="legend">
+        <span><i style="background:var(--up)"></i>więcej</span>
+        <span><i style="background:var(--flat)"></i>tyle samo</span>
+        <span><i style="background:var(--down)"></i>mniej</span>
+        <span><i class="hollow"></i>pierwszy raz</span>
+      </p>
+      <button class="expand hidden" id="expandBtn">
+        <span id="expandTxt"></span>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 8l5 5 5-5"/>
+        </svg>
+      </button>
+      <div id="dayList"></div>
+    </div>
+  </section>
+
+  <!-- POSTĘP -->
+  <section class="hidden" id="progressSec">
+    <div class="shead">
+      <h2 id="progTitle">Postęp</h2>
+      <span class="meta" id="progMeta"></span>
+    </div>
+    <div class="panel">
+      <div class="figures num">
+        <div class="fig"><div class="k">ostatnio</div><div class="v" id="figLast">–</div></div>
+        <div class="fig"><div class="k">rekord</div><div class="v" id="figBest">–</div></div>
+        <div class="fig"><div class="k">od początku</div><div class="v" id="figDelta">–</div></div>
+      </div>
+      <div class="chartbox hidden" id="chartBox"></div>
+    </div>
+  </section>
+
+  <!-- HISTORIA -->
+  <section class="hidden" id="historySec">
+    <div class="shead">
+      <h2 id="histTitle">Historia</h2>
+      <span class="meta" id="histCount"></span>
+    </div>
+    <div class="panel" id="historyPanel"></div>
+  </section>
+
+  <!-- KOPIA -->
+  <section>
+    <div class="shead"><h2>Kopia zapasowa</h2></div>
+    <div class="panel backup">
+      <p id="backupInfo">Dane trzymane są tylko na tym urządzeniu. Zapisz kopię do Plików albo iCloud Drive.</p>
+      <div class="btnrow">
+        <button class="btn line" id="dlBtn">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 3v9.5m0 0L6.2 8.7M10 12.5l3.8-3.8M3.8 16.5h12.4"/>
+          </svg>
+          Zapisz kopię
+        </button>
+        <button class="btn line" id="impBtn">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 16.5V7m0 0L6.2 10.8M10 7l3.8 3.8M3.8 3.5h12.4"/>
+          </svg>
+          Wczytaj
+        </button>
+      </div>
+      <input type="file" id="fileInput" accept=".txt,.json,text/plain,application/json" class="hidden">
+      <p class="note hidden" id="impNote"></p>
+    </div>
+  </section>
+
+  <footer><span id="verTxt"></span></footer>
+
+</div>
+
+<!-- okno dialogowe -->
+<div class="veil hidden" id="veil">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <h3 id="mTitle"></h3>
+    <p id="mMsg" class="hidden"></p>
+    <input id="mInput" class="hidden" type="text" autocomplete="off" autocapitalize="sentences">
+    <div class="modalrow">
+      <button class="btn line" id="mCancel">Anuluj</button>
+      <button class="btn solid" id="mOk">OK</button>
     </div>
   </div>
-
-  <div class="card hidden" id="chartCard">
-    <h2>Obciążenie w czasie</h2>
-    <div id="chart"></div>
-  </div>
-
-  <div class="card">
-    <h2 id="formTitle">Nowy wpis</h2>
-    <label>
-      <span class="lbl">Data</span>
-      <input id="date" type="date">
-    </label>
-    <label>
-      <span class="lbl">Ciężar (kg)</span>
-      <input id="weight" type="number" inputmode="decimal" step="0.5" min="0" placeholder="np. 50">
-    </label>
-    <button class="primary" id="addBtn">+ Dodaj wpis</button>
-    <p class="msg bad hidden" id="formMsg"></p>
-  </div>
-
-  <h2>Historia <span id="histEx"></span></h2>
-  <div id="history"></div>
-
-  <h2 style="margin-top:22px">Kopia zapasowa</h2>
-  <p class="hint hidden" id="backupWarn"></p>
-  <div class="row">
-    <button class="primary" id="dlBtn" style="flex:1">⬇ Zapisz kopię</button>
-    <button class="ghost" id="impBtn">⬆ Wczytaj kopię</button>
-  </div>
-  <input type="file" id="fileInput" accept=".txt,.json,text/plain,application/json" style="display:none">
-  <p class="msg hidden" id="impMsg"></p>
-
-  <p class="ver" id="ver"></p>
-
 </div>
 
 <script>
 'use strict';
 
-var APP_VERSION = '1.3';
+var APP_VERSION = '1.6';
 
 var KEY = 'gym-entries';
 var BK = 'gym-last-backup';
 
 var entries = [];
 var active = null;
-var pending = null;   // nowo dodane ćwiczenie, które nie ma jeszcze żadnego wpisu
+var pending = null;      // nowe ćwiczenie bez wpisów
+var deltas = {};
+var daysOpen = false;
+var MAX_DAYS = 8;
 
 /* ---------- przechowywanie ---------- */
 function readList(k) {
@@ -304,14 +533,10 @@ function readList(k) {
 }
 
 function setupStorage() {
-  // dane już w docelowym miejscu — nic nie rób
   if (localStorage.getItem(KEY)) { cleanupOld(); return; }
-
-  // przeniesienie z poprzednich wersji apki
   var stare = readList('gym-entries-Daniel');
   if (!stare.length) stare = readList('gym-entries-Kasia');
   if (!stare.length) stare = readList('gym-entries-v1');
-
   if (stare.length) {
     try { localStorage.setItem(KEY, JSON.stringify(stare)); } catch (e) {}
   }
@@ -332,23 +557,25 @@ function load() {
 }
 
 function save() {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(entries));
-    return true;
-  } catch (e) { return false; }
+  try { localStorage.setItem(KEY, JSON.stringify(entries)); return true; }
+  catch (e) { return false; }
 }
 
 /* ---------- pomocnicze ---------- */
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+function todayISO() {
+  var d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
 function fmtDate(iso) {
   var p = iso.split('-');
   return p[2] + '.' + p[1] + '.' + p[0].slice(2);
-}
-/* dzisiejsza data wg zegara telefonu, nie wg UTC */
-function todayISO() {
-  var d = new Date();
-  var m = String(d.getMonth() + 1).padStart(2, '0');
-  var day = String(d.getDate()).padStart(2, '0');
-  return d.getFullYear() + '-' + m + '-' + day;
 }
 function fmtLong(iso) {
   var d = new Date(iso + 'T00:00:00');
@@ -358,21 +585,25 @@ function fmtLong(iso) {
   var rok = d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '';
   return dni[d.getDay()] + ', ' + d.getDate() + ' ' + mies[d.getMonth()] + rok;
 }
-/* ---------- progresja względem poprzedniego razu ---------- */
-/* deltas['ćwiczenie|data'] = różnica kg wobec poprzedniej sesji tego ćwiczenia
-   (null = pierwszy raz, nie ma z czym porównać) */
-var deltas = {};
+function dayNum(iso) { return Math.round(new Date(iso + 'T00:00:00').getTime() / 86400000); }
+function agoText(iso) {
+  var diff = dayNum(todayISO()) - dayNum(iso);
+  if (diff < 0) return 'zaplanowany';
+  if (diff === 0) return 'dzisiaj';
+  if (diff === 1) return 'wczoraj';
+  return diff + ' dni temu';
+}
+/* liczby po polsku: przecinek dziesiętny, bez zbędnego zera */
+function kg(n) { return String(Math.round(n * 10) / 10).replace('.', ','); }
 
+/* ---------- progresja ---------- */
 function computeDeltas() {
   deltas = {};
   var byEx = {};
-
-  // jeden ciężar na ćwiczenie i dzień — po imporcie kopii może być ich kilka
   entries.forEach(function (e) {
     var m = (byEx[e.exercise] = byEx[e.exercise] || {});
     if (m[e.date] === undefined || e.weight > m[e.date]) m[e.date] = e.weight;
   });
-
   Object.keys(byEx).forEach(function (ex) {
     var prev = null;
     Object.keys(byEx[ex]).sort().forEach(function (d) {
@@ -382,392 +613,477 @@ function computeDeltas() {
     });
   });
 }
-
 function deltaOf(ex, date) {
   var v = deltas[ex + '|' + date];
   return v === undefined ? null : v;
 }
-
-/* zielony w górę, niebieski bez zmian, bursztynowy w dół, szary pierwszy raz */
-function progColor(d) {
-  if (d === null) return '#8A8D93';
-  if (d > 0) return '#2E9E5B';
-  if (d < 0) return '#D9822B';
-  return '#1F6FEB';
+function progVar(d) {
+  if (d === null) return null;              // pierwszy raz — pusty pierścień
+  if (d > 0) return 'var(--up)';
+  if (d < 0) return 'var(--down)';
+  return 'var(--flat)';
 }
-
-/* czytelny kolor cyfry na kolorowym kółku */
-function discInk(d) {
-  return (d === null || d < 0) ? '#111113' : '#FFFFFF';
-}
-
 function deltaText(d) {
   if (d === null || d === 0) return '';
-  return (d > 0 ? '+' : '−') + String(Math.abs(d)).replace('.', ',');
+  return (d > 0 ? '+' : '−') + kg(Math.abs(d));
 }
+function dotHTML(d) {
+  var c = progVar(d);
+  return c ? '<span class="dot" style="background:' + c + '"></span>'
+           : '<span class="dot hollow"></span>';
+}
+
+/* ---------- dane ---------- */
 function exercises() {
   var seen = {}, out = [];
   entries.forEach(function (e) { if (!seen[e.exercise]) { seen[e.exercise] = 1; out.push(e.exercise); } });
   if (pending && !seen[pending]) out.push(pending);
-  return out.sort();
+  return out.sort(function (a, b) { return a.localeCompare(b, 'pl'); });
 }
 function filtered() {
   return entries.filter(function (e) { return e.exercise === active; });
 }
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, function (c) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+function sessions() {
+  var wg = {};
+  entries.forEach(function (e) {
+    var d = (wg[e.date] = wg[e.date] || {});
+    if (!d[e.exercise] || e.weight > d[e.exercise].weight) d[e.exercise] = e;
+  });
+  return Object.keys(wg).sort().reverse().map(function (dt) {
+    return {
+      date: dt,
+      items: Object.keys(wg[dt])
+        .sort(function (a, b) { return a.localeCompare(b, 'pl'); })
+        .map(function (k) { return wg[dt][k]; })
+    };
   });
 }
 
-/* ---------- wykres SVG ---------- */
-function dayNum(iso) { return Math.round(new Date(iso + 'T00:00:00').getTime() / 86400000); }
+/* ---------- okno dialogowe ---------- */
+var veil = document.getElementById('veil');
+var mTitle = document.getElementById('mTitle');
+var mMsg = document.getElementById('mMsg');
+var mInput = document.getElementById('mInput');
+var mOk = document.getElementById('mOk');
+var mCancel = document.getElementById('mCancel');
+var settle = null;
+
+function ask(o) {
+  return new Promise(function (resolve) {
+    settle = resolve;
+    mTitle.textContent = o.title;
+    mMsg.textContent = o.msg || '';
+    mMsg.classList.toggle('hidden', !o.msg);
+
+    var wantsText = o.input !== undefined;
+    mInput.classList.toggle('hidden', !wantsText);
+    if (wantsText) {
+      mInput.value = o.input;
+      mInput.placeholder = o.placeholder || '';
+    }
+
+    mOk.textContent = o.ok || 'OK';
+    mOk.className = 'btn ' + (o.danger ? 'warn' : 'solid');
+    veil.classList.remove('hidden');
+
+    if (wantsText) setTimeout(function () { mInput.focus(); mInput.select(); }, 60);
+    else setTimeout(function () { mOk.focus(); }, 60);
+  });
+}
+
+function settleWith(v) {
+  veil.classList.add('hidden');
+  var f = settle;
+  settle = null;
+  if (f) f(v);
+}
+
+mOk.addEventListener('click', function () {
+  settleWith(mInput.classList.contains('hidden') ? true : mInput.value);
+});
+mCancel.addEventListener('click', function () { settleWith(null); });
+veil.addEventListener('click', function (ev) { if (ev.target === veil) settleWith(null); });
+mInput.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Enter') { ev.preventDefault(); settleWith(mInput.value); }
+});
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape' && !veil.classList.contains('hidden')) settleWith(null);
+});
+
+/* ---------- wykres ---------- */
+/* krok podziałki: 1, 2, 2.5, 5 lub 10 razy potęga dziesiątki */
+function niceStep(range) {
+  if (!(range > 0)) return 1;
+  var raw = range / 4.5;
+  var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+  var n = raw / mag;
+  var mult = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+  return mult * mag;
+}
 
 function drawChart(data) {
-  if (data.length < 2) return '';
-  var W = 320, H = 170, pad = { t: 16, r: 14, b: 26, l: 34 };
+  var W = 320, H = 158, pad = { t: 14, r: 12, b: 24, l: 32 };
   var iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
 
   var ws = data.map(function (d) { return d.weight; });
   var min = Math.min.apply(null, ws), max = Math.max.apply(null, ws);
   if (min === max) { min -= 5; max += 5; }
-  var vpad = (max - min) * 0.18;
+  var vpad = (max - min) * 0.2;
   min -= vpad; max += vpad;
 
-  // oś X proporcjonalna do rzeczywistego upływu czasu
   var t0 = dayNum(data[0].date), t1 = dayNum(data[data.length - 1].date);
   var span = t1 - t0;
   var X = function (iso) { return span === 0 ? pad.l + iw / 2 : pad.l + ((dayNum(iso) - t0) / span) * iw; };
   var Y = function (v) { return pad.t + ih - ((v - min) / (max - min)) * ih; };
 
-  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" preserveAspectRatio="xMidYMid meet">';
+  var s = '<svg class="plot" viewBox="0 0 ' + W + ' ' + H + '" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Wykres obciążenia w czasie">';
+  s += '<defs><linearGradient id="fillGrad" x1="0" y1="0" x2="0" y2="1">' +
+       '<stop offset="0%" stop-color="var(--signal)" stop-opacity=".16"/>' +
+       '<stop offset="100%" stop-color="var(--signal)" stop-opacity="0"/>' +
+       '</linearGradient></defs>';
 
-  // siatka pozioma z podpisami kg
-  for (var g = 0; g <= 3; g++) {
-    var yv = min + ((max - min) * g / 3), y = Y(yv);
-    s += '<line class="grid" x1="' + pad.l + '" y1="' + y.toFixed(1) + '" x2="' + (W - pad.r) + '" y2="' + y.toFixed(1) + '"/>';
-    s += '<text x="' + (pad.l - 6) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + Math.round(yv) + '</text>';
+  // podziałki na okrągłych wartościach, nigdy poza zakresem danych
+  var step = niceStep(max - min);
+  for (var tv = Math.ceil(min / step) * step; tv <= max + 1e-9; tv += step) {
+    var y = Y(tv);
+    s += '<line class="gridline" x1="' + pad.l + '" y1="' + y.toFixed(1) + '" x2="' + (W - pad.r) + '" y2="' + y.toFixed(1) + '"/>';
+    s += '<text x="' + (pad.l - 6) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + kg(tv) + '</text>';
   }
 
-  // linia
-  var d = data.map(function (p, i) {
+  var line = data.map(function (p, i) {
     return (i ? 'L' : 'M') + X(p.date).toFixed(1) + ' ' + Y(p.weight).toFixed(1);
   }).join(' ');
-  s += '<path d="' + d + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
 
-  // punkty
-  data.forEach(function (p) {
-    s += '<circle cx="' + X(p.date).toFixed(1) + '" cy="' + Y(p.weight).toFixed(1) + '" r="3.5" fill="var(--accent)"/>';
+  s += '<path d="' + line + ' L' + X(data[data.length - 1].date).toFixed(1) + ' ' + (pad.t + ih) +
+       ' L' + X(data[0].date).toFixed(1) + ' ' + (pad.t + ih) + ' Z" fill="url(#fillGrad)" stroke="none"/>';
+  s += '<path d="' + line + '" fill="none" stroke="var(--signal)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>';
+
+  data.forEach(function (p, i) {
+    var r = i === data.length - 1 ? 3.6 : 2.4;
+    s += '<circle cx="' + X(p.date).toFixed(1) + '" cy="' + Y(p.weight).toFixed(1) + '" r="' + r + '" fill="var(--signal)"/>';
   });
 
-  // podpis ostatniej wartości
   var lastP = data[data.length - 1];
-  var lx = X(lastP.date), ly = Y(lastP.weight);
-  s += '<text x="' + Math.min(lx, W - pad.r).toFixed(1) + '" y="' + Math.max(ly - 9, 10).toFixed(1) +
-       '" text-anchor="end" class="last">' + lastP.weight + ' kg</text>';
-
-  // daty skrajne
-  s += '<text x="' + pad.l + '" y="' + (H - 6) + '" text-anchor="start">' + fmtDate(data[0].date) + '</text>';
-  s += '<text x="' + (W - pad.r) + '" y="' + (H - 6) + '" text-anchor="end">' + fmtDate(lastP.date) + '</text>';
-
+  s += '<text x="' + Math.min(X(lastP.date), W - pad.r).toFixed(1) + '" y="' + Math.max(Y(lastP.weight) - 9, 10).toFixed(1) +
+       '" text-anchor="end" class="tip">' + kg(lastP.weight) + ' kg</text>';
+  s += '<text x="' + pad.l + '" y="' + (H - 5) + '" text-anchor="start">' + fmtDate(data[0].date) + '</text>';
+  s += '<text x="' + (W - pad.r) + '" y="' + (H - 5) + '" text-anchor="end">' + fmtDate(lastP.date) + '</text>';
   s += '</svg>';
   return s;
 }
 
-/* ---------- ostatni trening ---------- */
-var MAX_PREV = 8;      // ile wcześniejszych treningów pokazać po rozwinięciu
-var prevOpen = false;  // czy lista wcześniejszych jest rozwinięta
-
-/* wszystkie treningi pogrupowane po dacie, od najnowszego */
-function sessions() {
-  var wg = {};
-  entries.forEach(function (e) {
-    var d = (wg[e.date] = wg[e.date] || {});
-    // po imporcie kopii może istnieć kilka wpisów tego samego ćwiczenia w jednym dniu
-    if (!d[e.exercise] || e.weight > d[e.exercise].weight) d[e.exercise] = e;
-  });
-
-  return Object.keys(wg).sort().reverse().map(function (dt) {
-    var items = Object.keys(wg[dt])
-      .sort(function (a, b) { return a.localeCompare(b, 'pl'); })
-      .map(function (k) { return wg[dt][k]; });
-    return { date: dt, items: items };
-  });
-}
-
-function chipHTML(e) {
+/* ---------- widok: ostatnie treningi ---------- */
+function rowHTML(e, small) {
   var d = deltaOf(e.exercise, e.date);
   var dt = deltaText(d);
-  return '<button class="chip' + (e.exercise === active ? ' chip-on' : '') + '" data-ex="' + esc(e.exercise) + '">' +
-    '<span class="dot" style="background:' + progColor(d) + '"></span>' +
+  var c = progVar(d);
+  return '<button class="exrow' + (e.exercise === active ? ' on' : '') + '" data-ex="' + esc(e.exercise) + '">' +
+    dotHTML(d) +
     '<span class="n">' + esc(e.exercise) + '</span>' +
-    (dt ? '<span class="dl" style="color:' + progColor(d) + '">' + dt + '</span>' : '') +
-    '<span class="w">' + e.weight + ' kg</span>' +
+    (dt ? '<span class="dl num" style="color:' + c + '">' + dt + '</span>' : '') +
+    '<span class="w num">' + kg(e.weight) + ' kg</span>' +
   '</button>';
 }
 
-function agoText(iso) {
-  var diff = dayNum(todayISO()) - dayNum(iso);
-  if (diff < 0) return 'zaplanowany';
-  if (diff === 0) return 'dzisiaj';
-  if (diff === 1) return 'wczoraj';
-  return diff + ' dni temu';
-}
-
-function renderLastSession() {
-  var card = document.getElementById('sessionCard');
+function renderSessions() {
+  var sec = document.getElementById('sessionSec');
   var all = sessions();
-  if (!all.length) { card.classList.add('hidden'); return; }
-  card.classList.remove('hidden');
+  if (!all.length) { sec.classList.add('hidden'); return; }
+  sec.classList.remove('hidden');
 
   var s = all[0];
-  document.getElementById('sessDate').textContent = fmtLong(s.date);
-  document.getElementById('sessAgo').textContent = agoText(s.date);
-  document.getElementById('sessList').innerHTML = s.items.map(chipHTML).join('');
+  var ago = agoText(s.date);
+  document.getElementById('sessTitle').textContent = fmtLong(s.date);
+  var meta = document.getElementById('sessMeta');
+  meta.textContent = ago;
+  meta.className = 'meta' + (ago === 'dzisiaj' ? ' today' : '');
 
-  // wcześniejsze treningi
-  var prev = all.slice(1, 1 + MAX_PREV);
-  var btn = document.getElementById('moreBtn');
-  var box = document.getElementById('prevList');
+  document.getElementById('sessRows').innerHTML = s.items.map(function (e) { return rowHTML(e); }).join('');
 
-  if (!prev.length) {
-    btn.classList.add('hidden');
-    box.innerHTML = '';
-    return;
-  }
+  var rest = all.slice(1, 1 + MAX_DAYS);
+  var btn = document.getElementById('expandBtn');
+  var box = document.getElementById('dayList');
+
+  if (!rest.length) { btn.classList.add('hidden'); box.innerHTML = ''; return; }
 
   btn.classList.remove('hidden');
-  btn.textContent = prevOpen
-    ? 'Ukryj wcześniejsze ▴'
-    : 'Wcześniejsze treningi (' + (all.length - 1) + ') ▾';
+  btn.classList.toggle('open', daysOpen);
+  document.getElementById('expandTxt').textContent =
+    daysOpen ? 'Zwiń' : 'Wcześniejsze treningi (' + (all.length - 1) + ')';
 
-  if (!prevOpen) { box.innerHTML = ''; return; }
+  if (!daysOpen) { box.innerHTML = ''; return; }
 
-  box.innerHTML = prev.map(function (p) {
-    return '<div class="prev">' +
-      '<div class="prevhead">' +
-        '<span class="pd">' + fmtLong(p.date) + '</span>' +
-        '<span class="pa">' + agoText(p.date) + '</span>' +
+  box.innerHTML = rest.map(function (p) {
+    return '<div class="daygroup">' +
+      '<div class="dayhead">' +
+        '<span class="dd">' + fmtLong(p.date) + '</span>' +
+        '<span class="da">' + agoText(p.date) + '</span>' +
       '</div>' +
-      '<div class="chips">' + p.items.map(chipHTML).join('') + '</div>' +
+      p.items.map(function (e) { return rowHTML(e); }).join('') +
     '</div>';
-  }).join('') +
-  (all.length - 1 > MAX_PREV
-    ? '<p class="hint" style="margin:12px 0 0;text-align:center">Starsze treningi znajdziesz w historii wybranego ćwiczenia.</p>'
-    : '');
+  }).join('');
 }
 
-document.getElementById('moreBtn').addEventListener('click', function () {
-  prevOpen = !prevOpen;
-  renderLastSession();
+document.getElementById('expandBtn').addEventListener('click', function () {
+  daysOpen = !daysOpen;
+  renderSessions();
 });
 
-document.getElementById('sessionCard').addEventListener('click', function (ev) {
-  var b = ev.target.closest('.chip');
+document.getElementById('sessionSec').addEventListener('click', function (ev) {
+  var b = ev.target.closest('.exrow');
   if (!b) return;
   active = b.dataset.ex;
   render();
-  document.getElementById('pickerWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('weight').focus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
-/* ---------- renderowanie ---------- */
+/* ---------- widok główny ---------- */
 function render() {
   computeDeltas();
+
   var exs = exercises();
   if (active === null || exs.indexOf(active) === -1) active = exs.length ? exs[exs.length - 1] : null;
 
-  // lista ćwiczeń
-  var pk = document.getElementById('picker');
-  if (exs.length) {
-    pk.innerHTML = exs.map(function (x) {
-      return '<option' + (x === active ? ' selected' : '') + '>' + esc(x) + '</option>';
-    }).join('');
-    pk.disabled = false;
-  } else {
-    pk.innerHTML = '<option>Brak ćwiczeń — dotknij ➕</option>';
-    pk.disabled = true;
-  }
-  document.getElementById('renameBtn').disabled = !active;
+  // pierwsze uruchomienie: zaproszenie zamiast wyszarzonego formularza
+  document.getElementById('firstRun').classList.toggle('hidden', exs.length > 0);
+  document.getElementById('composePanel').classList.toggle('hidden', exs.length === 0);
 
-  // nagłówek formularza pokazuje, do czego dopisujesz
-  document.getElementById('formTitle').textContent =
-    active ? 'Nowy wpis — ' + active : 'Nowy wpis';
-  document.getElementById('addBtn').disabled = !active;
+  var pick = document.getElementById('exPick');
+  pick.innerHTML = exs.map(function (x) {
+    return '<option' + (x === active ? ' selected' : '') + '>' + esc(x) + '</option>';
+  }).join('');
+  document.getElementById('renameBtn').disabled = !active;
+  document.getElementById('saveBtn').disabled = !active;
 
   var f = filtered();
   var last = f[f.length - 1], first = f[0];
 
-  // statystyki
-  var st = document.getElementById('stats');
+  // linia kontekstu pod nazwą ćwiczenia
+  var ll = document.getElementById('lastLine');
+  var rep = document.getElementById('repeatBtn');
   if (last) {
-    st.classList.remove('hidden');
-    document.getElementById('statLast').textContent = last.weight + ' kg';
-    document.getElementById('statDate').textContent = fmtDate(last.date);
+    ll.innerHTML = 'ostatnio <b>' + kg(last.weight) + ' kg</b> · ' + agoText(last.date);
+    document.getElementById('repeatTxt').textContent = 'powtórz ' + kg(last.weight) + ' kg';
+    rep.classList.remove('hidden');
+    document.getElementById('weight').placeholder = kg(last.weight);
+  } else if (active) {
+    ll.textContent = 'pierwszy wpis tego ćwiczenia';
+    rep.classList.add('hidden');
+    document.getElementById('weight').placeholder = '0';
+  } else {
+    ll.textContent = '';
+    rep.classList.add('hidden');
+  }
+
+  // postęp
+  var ps = document.getElementById('progressSec');
+  if (last) {
+    ps.classList.remove('hidden');
+    document.getElementById('progTitle').textContent = 'Postęp';
+    document.getElementById('progMeta').textContent = active;
+
+    document.getElementById('figLast').textContent = kg(last.weight) + ' kg';
 
     var best = f[0];
     f.forEach(function (e) { if (e.weight > best.weight) best = e; });
-    document.getElementById('statBest').textContent = best.weight + ' kg';
-    document.getElementById('statBestDate').textContent =
-      (best.id === last.id && f.length > 1) ? 'to dziś Twój top' : fmtDate(best.date);
+    document.getElementById('figBest').textContent = kg(best.weight) + ' kg';
 
     var delta = Math.round((last.weight - first.weight) * 10) / 10;
-    var dEl = document.getElementById('statDelta');
-    dEl.textContent = (delta > 0 ? '+' : '') + delta + ' kg';
-    dEl.style.color = delta > 0 ? '#2E9E5B' : (delta < 0 ? '#D7263D' : '#B0B3B8');
-  } else { st.classList.add('hidden'); }
+    var dEl = document.getElementById('figDelta');
+    dEl.textContent = (delta > 0 ? '+' : delta < 0 ? '−' : '') + kg(Math.abs(delta)) + ' kg';
+    dEl.style.color = delta > 0 ? 'var(--up)' : (delta < 0 ? 'var(--down)' : 'var(--ink)');
 
-  // wykres
-  var cc = document.getElementById('chartCard');
-  if (f.length > 1) {
-    cc.classList.remove('hidden');
-    document.getElementById('chart').innerHTML = drawChart(f);
-  } else if (f.length === 1) {
-    cc.classList.remove('hidden');
-    document.getElementById('chart').innerHTML =
-      '<p class="hint" style="margin:4px 0 0">Dodaj drugi trening tego ćwiczenia, a pojawi się wykres progresji.</p>';
-  } else { cc.classList.add('hidden'); }
+    var cb = document.getElementById('chartBox');
+    if (f.length > 1) { cb.classList.remove('hidden'); cb.innerHTML = drawChart(f); }
+    else { cb.classList.add('hidden'); cb.innerHTML = ''; }
+  } else { ps.classList.add('hidden'); }
 
   // historia
-  document.getElementById('histEx').textContent = active ? '— ' + active : '';
-  var h = document.getElementById('history');
-  if (!f.length) {
-    h.innerHTML = '<div class="empty">Brak wpisów. Dodaj pierwszy trening powyżej.</div>';
-  } else {
-    h.innerHTML = '<ul>' + f.slice().reverse().map(function (e) {
+  var hs = document.getElementById('historySec');
+  if (f.length) {
+    hs.classList.remove('hidden');
+    document.getElementById('histTitle').textContent = 'Historia';
+    document.getElementById('histCount').textContent = active;
+
+    document.getElementById('historyPanel').innerHTML = f.slice().reverse().map(function (e) {
       var d = deltaOf(e.exercise, e.date), dt = deltaText(d);
-      var sub = fmtDate(e.date) +
-        (dt ? ' · <span style="color:' + progColor(d) + ';font-weight:700">' + dt + ' kg</span>' : '');
-      return '<li>' +
-        '<div class="disc" style="background:' + progColor(d) + ';color:' + discInk(d) + '">' + e.weight + '</div>' +
-        '<div class="info"><div class="m">' + e.weight + ' kg</div><div class="d">' + sub + '</div></div>' +
-        '<button class="del" data-id="' + e.id + '">&#128465;</button>' +
-      '</li>';
-    }).join('') + '</ul>';
+      return '<div class="hrow">' +
+        dotHTML(d) +
+        '<span class="hw num">' + kg(e.weight) + ' kg</span>' +
+        '<span class="hd num">' + fmtDate(e.date) + '</span>' +
+        (dt ? '<span class="hdl num" style="color:' + progVar(d) + '">' + dt + '</span>' : '') +
+        '<button class="del" data-id="' + e.id + '" aria-label="Usuń wpis">' +
+          '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+            '<path d="M4 5.8h12M8.2 5.8V4.2h3.6v1.6M6.2 5.8l.7 10.2h6.2l.7-10.2"/>' +
+          '</svg>' +
+        '</button>' +
+      '</div>';
+    }).join('');
+  } else if (!exs.length) {
+    hs.classList.add('hidden');
+  } else {
+    hs.classList.remove('hidden');
+    document.getElementById('histTitle').textContent = 'Historia';
+    document.getElementById('histCount').textContent = active || '';
+    document.getElementById('historyPanel').innerHTML =
+      '<div class="blank">' +
+        '<svg class="mark" viewBox="-26 -26 52 52" aria-hidden="true">' +
+          '<polygon points="14,-21.5 -17.5,-21.5 -17.5,4.5 0,4.5 0,-6.5 -6.5,-6.5 -6.5,-10.5 14,-10.5" fill="#D85A30"/>' +
+          '<polygon points="3,-6.5 17.5,-6.5 17.5,21.5 -14,21.5 -14,10.5 6.5,10.5 6.5,4.5 3,4.5" fill="#185FA5"/>' +
+        '</svg>' +
+        '<p>' + (active ? 'Zapisz pierwszy ciężar, a zobaczysz tu progresję.'
+                        : 'Dodaj ćwiczenie plusem u góry i zapisz pierwszy ciężar.') + '</p>' +
+      '</div>';
   }
 
-  renderLastSession();
+  renderSessions();
 }
 
 /* ---------- akcje ---------- */
-function showMsg(id, text, ok) {
-  var el = document.getElementById(id);
+function showErr(text) {
+  var el = document.getElementById('formErr');
+  if (!text) { el.classList.add('hidden'); return; }
   el.textContent = text;
-  el.className = 'msg ' + (ok ? 'ok' : 'bad');
+  el.classList.remove('hidden');
 }
 
-document.getElementById('addBtn').addEventListener('click', function () {
+document.getElementById('repeatBtn').addEventListener('click', function () {
+  var f = filtered();
+  if (!f.length) return;
+  document.getElementById('weight').value = f[f.length - 1].weight;
+  showErr('');
+});
+
+document.getElementById('saveBtn').addEventListener('click', function () {
   var name = active;
   var date = document.getElementById('date').value;
   var weight = parseFloat(document.getElementById('weight').value);
 
-  if (!name) { showMsg('formMsg', 'Najpierw dodaj ćwiczenie przyciskiem ➕.', false); return; }
-  if (!date) { showMsg('formMsg', 'Wybierz datę.', false); return; }
-  if (!weight || weight <= 0) { showMsg('formMsg', 'Podaj ciężar w kg.', false); return; }
-  if (weight > 1000) { showMsg('formMsg', 'To chyba pomyłka — sprawdź ciężar.', false); return; }
+  if (!name) { showErr('Najpierw dodaj ćwiczenie plusem u góry.'); return; }
+  if (!date) { showErr('Wybierz datę.'); return; }
+  if (!weight || weight <= 0) { showErr('Wpisz ciężar w kilogramach.'); return; }
+  if (weight > 1000) { showErr('To wygląda na pomyłkę — sprawdź ciężar.'); return; }
 
-  // ten sam trening tego samego dnia: zastąp zamiast dublować
   var dup = entries.filter(function (e) { return e.exercise === name && e.date === date; })[0];
+
+  var go = function () {
+    if (!save()) { showErr('Nie udało się zapisać. Sprawdź, czy przeglądarka nie blokuje danych.'); return; }
+    if (pending === name) pending = null;
+    showErr('');
+    document.getElementById('weight').value = '';
+    document.getElementById('weight').blur();
+    render();
+    renderBackupInfo();
+  };
+
+  if (dup && dup.weight === weight) { showErr('Taki wpis już tu jest.'); return; }
+
   if (dup) {
-    if (dup.weight === weight) {
-      showMsg('formMsg', 'Taki wpis już istnieje.', false);
-      return;
-    }
-    if (!confirm('Masz już wpis ' + dup.weight + ' kg na ten dzień. Zastąpić przez ' + weight + ' kg?')) return;
-    dup.weight = weight;
-  } else {
-    entries.push({ id: 'e' + Date.now() + Math.random().toString(36).slice(2, 6), exercise: name, date: date, weight: weight });
+    ask({
+      title: 'Zastąpić wpis?',
+      msg: 'Na ten dzień masz już ' + kg(dup.weight) + ' kg dla ćwiczenia ' + name + '.',
+      ok: 'Zastąp'
+    }).then(function (v) {
+      if (!v) return;
+      dup.weight = weight;
+      entries.sort(function (a, b) { return a.date.localeCompare(b.date); });
+      go();
+    });
+    return;
   }
+
+  entries.push({
+    id: 'e' + Date.now() + Math.random().toString(36).slice(2, 6),
+    exercise: name, date: date, weight: weight
+  });
   entries.sort(function (a, b) { return a.date.localeCompare(b.date); });
-  active = name;
-
-  if (!save()) { showMsg('formMsg', 'Nie udało się zapisać — sprawdź, czy przeglądarka nie blokuje danych.', false); return; }
-
-  if (pending === name) pending = null;
-  document.getElementById('formMsg').className = 'msg hidden';
-  document.getElementById('weight').value = '';
-  render();
-  renderBackupWarn();
+  go();
 });
 
 document.getElementById('addExBtn').addEventListener('click', function () {
-  var nazwa = prompt('Nazwa nowego ćwiczenia:', '');
-  if (nazwa === null) return;
-  nazwa = nazwa.trim();
-  if (!nazwa) return;
+  ask({ title: 'Nowe ćwiczenie', input: '', placeholder: 'np. Wyciskanie sztangi', ok: 'Dodaj' })
+    .then(function (v) {
+      if (v === null) return;
+      var nazwa = v.trim();
+      if (!nazwa) return;
+      if (exercises().indexOf(nazwa) === -1) pending = nazwa;
+      active = nazwa;
+      showErr('');
+      render();
+    });
+});
 
-  if (exercises().indexOf(nazwa) !== -1) {
-    active = nazwa;   // już istnieje — po prostu je wybierz
-  } else {
-    pending = nazwa;
-    active = nazwa;
-  }
-  document.getElementById('formMsg').className = 'msg hidden';
+document.getElementById('exPick').addEventListener('change', function () {
+  active = this.value;
+  showErr('');
   render();
 });
 
-document.getElementById('history').addEventListener('click', function (ev) {
-  var b = ev.target.closest('.del');
-  if (!b) return;
-  var e = entries.filter(function (x) { return x.id === b.dataset.id; })[0];
-  if (!e) return;
-  if (!confirm('Usunąć wpis ' + e.weight + ' kg z ' + fmtDate(e.date) + '?')) return;
-  entries = entries.filter(function (x) { return x.id !== b.dataset.id; });
-  save();
-  render();
+document.getElementById('firstBtn').addEventListener('click', function () {
+  document.getElementById('addExBtn').click();
 });
 
 document.getElementById('renameBtn').addEventListener('click', function () {
   if (!active) return;
+  ask({ title: 'Zmień nazwę', input: active, ok: 'Zapisz' }).then(function (v) {
+    if (v === null) return;
+    var nowa = v.trim();
+    if (!nowa || nowa === active) return;
 
-  var nowa = prompt('Nowa nazwa ćwiczenia:', active);
-  if (nowa === null) return;
-  nowa = nowa.trim();
+    var stara = active;
+    var kolizja = exercises().indexOf(nowa) !== -1;
 
-  if (!nowa) { alert('Nazwa nie może być pusta.'); return; }
-  if (nowa === active) return;
+    var apply = function () {
+      if (pending === stara) {
+        pending = kolizja ? null : nowa;
+        active = nowa;
+        render();
+        return;
+      }
+      entries.forEach(function (e) { if (e.exercise === stara) e.exercise = nowa; });
+      if (kolizja) {
+        var best = {};
+        entries.forEach(function (e) {
+          if (e.exercise !== nowa) return;
+          if (!best[e.date] || e.weight > best[e.date].weight) best[e.date] = e;
+        });
+        entries = entries.filter(function (e) { return e.exercise !== nowa || best[e.date] === e; });
+      }
+      entries.sort(function (a, b) { return a.date.localeCompare(b.date); });
+      active = nowa;
+      if (!save()) { ask({ title: 'Nie udało się zapisać zmiany.' }); return; }
+      render();
+    };
 
-  var stara = active;
-  var kolizja = exercises().indexOf(nowa) !== -1;
+    if (kolizja) {
+      ask({
+        title: 'Połączyć ćwiczenia?',
+        msg: 'Ćwiczenie ' + nowa + ' już istnieje. Wpisy zostaną scalone, a przy powtórkach z tego samego dnia zostanie cięższy.',
+        ok: 'Połącz'
+      }).then(function (ok) { if (ok) apply(); });
+    } else { apply(); }
+  });
+});
 
-  if (kolizja && !confirm('Ćwiczenie "' + nowa + '" już istnieje. Połączyć oba w jedno?')) return;
-
-  // ćwiczenie bez wpisów — wystarczy zmienić nazwę roboczą
-  if (pending === stara) {
-    pending = kolizja ? null : nowa;
-    active = nowa;
+document.getElementById('historyPanel').addEventListener('click', function (ev) {
+  var b = ev.target.closest('.del');
+  if (!b) return;
+  var e = entries.filter(function (x) { return x.id === b.dataset.id; })[0];
+  if (!e) return;
+  ask({
+    title: 'Usunąć wpis?',
+    msg: kg(e.weight) + ' kg z ' + fmtDate(e.date),
+    ok: 'Usuń', danger: true
+  }).then(function (v) {
+    if (!v) return;
+    entries = entries.filter(function (x) { return x.id !== b.dataset.id; });
+    save();
     render();
-    return;
-  }
-
-  // zmiana nazwy we wszystkich wpisach
-  entries.forEach(function (e) { if (e.exercise === stara) e.exercise = nowa; });
-
-  // po scaleniu mogą powstać dwa wpisy na ten sam dzień — zostaw cięższy
-  if (kolizja) {
-    var best = {};
-    entries.forEach(function (e) {
-      if (e.exercise !== nowa) return;
-      var k = e.date;
-      if (!best[k] || e.weight > best[k].weight) best[k] = e;
-    });
-    entries = entries.filter(function (e) {
-      return e.exercise !== nowa || best[e.date] === e;
-    });
-  }
-
-  entries.sort(function (a, b) { return a.date.localeCompare(b.date); });
-  active = nowa;
-
-  if (!save()) { alert('Nie udało się zapisać zmiany.'); return; }
-  render();
+  });
 });
 
-document.getElementById('picker').addEventListener('change', function () {
-  active = this.value;
-  render();
-});
-
-/* eksport / import */
+/* ---------- kopia zapasowa ---------- */
 function exportText() {
   if (!entries.length) return '';
   var groups = {};
@@ -781,44 +1097,45 @@ function exportText() {
   return out + '--- DANE DO IMPORTU (nie zmieniaj) ---\n' + JSON.stringify(entries);
 }
 
-/* pobranie kopii jako plik — na iPhonie trafia do Plików / iCloud Drive */
 function markBackup() {
   try { localStorage.setItem(BK, new Date().toISOString()); } catch (e) {}
-  renderBackupWarn();
+  renderBackupInfo();
 }
 
-function renderBackupWarn() {
-  var el = document.getElementById('backupWarn');
-  if (!entries.length) { el.classList.add('hidden'); return; }
-
-  var lastStr = null;
-  try { lastStr = localStorage.getItem(BK); } catch (e) {}
-
-  if (!lastStr) {
-    el.textContent = 'Nie masz jeszcze żadnej kopii. Zapisz ją do pliku — zajmie sekundę.';
-    el.className = 'hint';
+function renderBackupInfo() {
+  var el = document.getElementById('backupInfo');
+  var dl = document.getElementById('dlBtn');
+  if (!entries.length) {
+    el.textContent = 'Przenosisz się z innego telefonu? Wczytaj plik z kopią.';
+    dl.disabled = true;
     return;
   }
-
-  var days = Math.floor((Date.now() - new Date(lastStr)) / 86400000);
-  if (days >= 14) {
-    el.textContent = 'Ostatnia kopia: ' + days + ' dni temu. Warto zrobić nową.';
-    el.className = 'hint';
-  } else {
-    el.textContent = 'Ostatnia kopia: ' + (days === 0 ? 'dzisiaj' : days + ' dni temu') + '.';
-    el.className = 'hint';
+  dl.disabled = false;
+  var lastStr = null;
+  try { lastStr = localStorage.getItem(BK); } catch (e) {}
+  if (!lastStr) {
+    el.textContent = 'Nie masz jeszcze kopii. Zapisz ją do Plików albo iCloud Drive — zajmie sekundę.';
+    return;
   }
+  var days = Math.floor((Date.now() - new Date(lastStr)) / 86400000);
+  el.textContent = days >= 14
+    ? 'Ostatnia kopia: ' + days + ' dni temu. Warto zrobić nową.'
+    : 'Ostatnia kopia: ' + (days === 0 ? 'dzisiaj' : days === 1 ? 'wczoraj' : days + ' dni temu') + '.';
+}
+
+function showNote(text, good) {
+  var el = document.getElementById('impNote');
+  el.textContent = text;
+  el.className = 'note ' + (good ? 'good' : 'bad');
 }
 
 document.getElementById('dlBtn').addEventListener('click', function () {
-  if (!entries.length) { return; }
-  var text = exportText();
-  var stamp = new Date().toISOString().slice(0, 10);
-  var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  if (!entries.length) { showNote('Nie ma jeszcze czego zapisywać.', false); return; }
+  var blob = new Blob([exportText()], { type: 'text/plain;charset=utf-8' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'dziennik-treningowy-' + stamp + '.txt';
+  a.download = 'dziennik-treningowy-' + todayISO() + '.txt';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -827,30 +1144,28 @@ document.getElementById('dlBtn').addEventListener('click', function () {
 });
 
 document.getElementById('impBtn').addEventListener('click', function () {
-  document.getElementById('impMsg').className = 'msg hidden';
+  document.getElementById('impNote').className = 'note hidden';
   document.getElementById('fileInput').click();
 });
 
 document.getElementById('fileInput').addEventListener('change', function () {
   var plik = this.files && this.files[0];
   if (!plik) return;
-
   var czytnik = new FileReader();
   czytnik.onload = function () { wczytajKopie(String(czytnik.result)); };
-  czytnik.onerror = function () { showMsg('impMsg', 'Nie udało się odczytać pliku.', false); };
+  czytnik.onerror = function () { showNote('Nie udało się odczytać pliku.', false); };
   czytnik.readAsText(plik);
-
-  this.value = ''; // pozwala wczytać ten sam plik ponownie
+  this.value = '';
 });
 
 function wczytajKopie(txt) {
   var a = txt.indexOf('['), b = txt.lastIndexOf(']');
-  if (a === -1 || b === -1) { showMsg('impMsg', 'To nie wygląda na kopię z tej apki.', false); return; }
+  if (a === -1 || b === -1) { showNote('To nie wygląda na kopię z tej apki.', false); return; }
 
   var parsed;
   try { parsed = JSON.parse(txt.slice(a, b + 1)); }
-  catch (e) { showMsg('impMsg', 'Plik jest uszkodzony.', false); return; }
-  if (!Array.isArray(parsed)) { showMsg('impMsg', 'Nieprawidłowy format pliku.', false); return; }
+  catch (e) { showNote('Plik jest uszkodzony.', false); return; }
+  if (!Array.isArray(parsed)) { showNote('Nieznany format pliku.', false); return; }
 
   var keyOf = function (e) { return e.exercise + '|' + e.date + '|' + e.weight; };
   var have = {};
@@ -865,22 +1180,23 @@ function wczytajKopie(txt) {
     added++;
   });
 
-  if (!added) { showMsg('impMsg', 'Wszystkie wpisy z tej kopii już tu są.', true); return; }
+  if (!added) { showNote('Wszystkie wpisy z tej kopii już tu są.', true); return; }
 
   entries.sort(function (x, y) { return x.date.localeCompare(y.date); });
-  if (!save()) { showMsg('impMsg', 'Wczytano, ale nie udało się zapisać.', false); return; }
+  if (!save()) { showNote('Wczytano, ale nie udało się zapisać.', false); return; }
 
-  showMsg('impMsg', 'Dodano ' + added + (added === 1 ? ' wpis.' : ' wpisów.'), true);
+  showNote('Dodano ' + added + (added === 1 ? ' wpis.' : added < 5 ? ' wpisy.' : ' wpisów.'), true);
   render();
 }
 
 /* ---------- start ---------- */
-document.getElementById('ver').textContent = 'Dziennik treningowy · wersja ' + APP_VERSION;
+document.getElementById('verTxt').textContent = 'Dziennik treningowy ' + APP_VERSION;
 document.getElementById('date').value = todayISO();
+document.getElementById('weight').addEventListener('input', function () { showErr(''); });
 setupStorage();
 load();
 render();
-renderBackupWarn();
+renderBackupInfo();
 </script>
 </body>
 </html>
