@@ -6,7 +6,7 @@
 <title>Dziennik treningowy</title>
 
 <!-- ============================================================
-     WERSJA PLIKU: 1.9   (2026-09-01)
+     WERSJA PLIKU: 2.0   (2026-09-01)
      Historia:
        1.0 – wersja bazowa: wpisy, wykres, statystyki, kopie
        1.1 – karta "Ostatni trening", lokalna data zamiast UTC
@@ -28,6 +28,8 @@
              się po pierwszym dzisiejszym wpisie; legenda tylko po rozwinięciu
        1.9 – ostatni trening na samej górze: po wejściu widzisz go pierwszy,
              po pierwszym wpisie zwija się do linijki i formularz wraca na wierzch
+       2.0 – punkty na wykresie w kolorze progresji, dotknięcie pokazuje
+             datę i ciężar; zakresy czasu 1/3/6 mies., rok, całość
      Przy każdej zmianie podnieś numer i dopisz linię wyżej.
      ============================================================ -->
 
@@ -335,7 +337,23 @@
   }
 
   /* ---------- wykres ---------- */
+  .ranges { display: flex; gap: 6px; padding: 11px 12px 0; }
+  .rbtn {
+    flex: 1; min-width: 0; padding: 7px 2px; border-radius: 8px;
+    background: var(--sunk); border: 1px solid var(--rule); color: var(--ink-2);
+    font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; white-space: nowrap;
+  }
+  .rbtn.on { background: var(--signal-soft); border-color: var(--signal); color: var(--signal); }
+  .rbtn:disabled { opacity: .35; }
+
   .chartbox { padding: 6px 10px 10px; border-top: 1px solid var(--hair); }
+  svg.plot .hit { fill: transparent; cursor: pointer; }
+  svg.plot .pin, svg.plot .pindate {
+    paint-order: stroke; stroke: var(--panel); stroke-width: 3.5; stroke-linejoin: round;
+  }
+  svg.plot .pin { fill: var(--ink); font-weight: 700; font-size: 11px; }
+  svg.plot .pindate { fill: var(--ink-3); font-size: 9.5px; }
   svg.plot text { font-size: 10px; fill: var(--ink-3); font-variant-numeric: tabular-nums; }
   svg.plot .gridline { stroke: var(--hair); stroke-width: 1; }
   svg.plot .tip { fill: var(--signal); font-weight: 700; }
@@ -527,6 +545,7 @@
         <div class="fig"><div class="k">rekord</div><div class="v" id="figBest">–</div></div>
         <div class="fig"><div class="k">od początku</div><div class="v" id="figDelta">–</div></div>
       </div>
+      <div class="ranges hidden" id="ranges"></div>
       <div class="chartbox hidden" id="chartBox"></div>
     </div>
   </section>
@@ -585,7 +604,7 @@
 <script>
 'use strict';
 
-var APP_VERSION = '1.9';
+var APP_VERSION = '2.0';
 
 var KEY = 'gym-entries';
 var BK = 'gym-last-backup';
@@ -598,6 +617,16 @@ var daysOpen = false;
 var MAX_DAYS = 8;
 var dateValue = null;    // wybrana data wpisu (ISO)
 var sessOpen = true;     // czy karta ostatniego treningu jest rozwinięta
+var chartRange = 'all';  // zakres czasu na wykresie
+var chartSel = null;     // data punktu wskazanego dotknięciem
+
+var RANGES = [
+  { id: '1m', label: '1 mies', days: 30 },
+  { id: '3m', label: '3 mies', days: 90 },
+  { id: '6m', label: '6 mies', days: 180 },
+  { id: '1r', label: '1 rok', days: 365 },
+  { id: 'all', label: 'całość', days: null }
+];
 
 /* ---------- przechowywanie ---------- */
 function readList(k) {
@@ -829,8 +858,31 @@ function niceStep(range) {
   return mult * mag;
 }
 
+/* wpisy mieszczące się w wybranym zakresie czasu */
+function inRange(f, days) {
+  if (!days) return f;
+  var cut = dayNum(todayISO()) - days;
+  return f.filter(function (e) { return dayNum(e.date) >= cut; });
+}
+
+function renderRanges(f) {
+  var box = document.getElementById('ranges');
+  var span = dayNum(f[f.length - 1].date) - dayNum(f[0].date);
+
+  // przy krótkiej historii przełączniki nie mają czego przełączać
+  if (span <= 30) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.classList.remove('hidden');
+
+  box.innerHTML = RANGES.map(function (r) {
+    if (r.days && r.days > span + 1) return '';
+    var enough = inRange(f, r.days).length > 1;
+    return '<button class="rbtn' + (r.id === chartRange ? ' on' : '') + '"' +
+      (enough ? '' : ' disabled') + ' data-range="' + r.id + '">' + r.label + '</button>';
+  }).join('');
+}
+
 function drawChart(data) {
-  var W = 320, H = 158, pad = { t: 14, r: 12, b: 24, l: 32 };
+  var W = 320, H = 166, pad = { t: 18, r: 12, b: 26, l: 32 };
   var iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
 
   var ws = data.map(function (d) { return d.weight; });
@@ -866,14 +918,39 @@ function drawChart(data) {
        ' L' + X(data[0].date).toFixed(1) + ' ' + (pad.t + ih) + ' Z" fill="url(#fillGrad)" stroke="none"/>';
   s += '<path d="' + line + '" fill="none" stroke="var(--signal)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>';
 
-  data.forEach(function (p, i) {
-    var r = i === data.length - 1 ? 3.6 : 2.4;
-    s += '<circle cx="' + X(p.date).toFixed(1) + '" cy="' + Y(p.weight).toFixed(1) + '" r="' + r + '" fill="var(--signal)"/>';
+  // każdy trening to punkt; kolor mówi, czy tego dnia był progres
+  data.forEach(function (p) {
+    var d = deltaOf(p.exercise, p.date);
+    var fill = progVar(d) || 'var(--panel)';
+    var cx = X(p.date).toFixed(1), cy = Y(p.weight).toFixed(1);
+    var on = p.date === chartSel;
+    s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (on ? 5 : 3.4) + '" fill="' + fill +
+         '" stroke="var(--panel)" stroke-width="1.6"/>';
+    if (d === null) s += '<circle cx="' + cx + '" cy="' + cy + '" r="2.6" fill="none" stroke="var(--ink-3)" stroke-width="1.4"/>';
+    // większy, niewidzialny cel dotyku
+    s += '<circle class="hit" cx="' + cx + '" cy="' + cy + '" r="13" data-date="' + p.date + '"/>';
   });
 
   var lastP = data[data.length - 1];
-  s += '<text x="' + Math.min(X(lastP.date), W - pad.r).toFixed(1) + '" y="' + Math.max(Y(lastP.weight) - 9, 10).toFixed(1) +
-       '" text-anchor="end" class="tip">' + kg(lastP.weight) + ' kg</text>';
+  var selP = null;
+  data.forEach(function (p) { if (p.date === chartSel) selP = p; });
+
+  if (selP) {
+    // etykieta wskazanego punktu: ciężar i data, przyklejona do krawędzi gdy trzeba
+    var sx = X(selP.date), sy = Y(selP.weight);
+    var anchor = sx < pad.l + 42 ? 'start' : (sx > W - pad.r - 42 ? 'end' : 'middle');
+    var tx = anchor === 'start' ? pad.l : (anchor === 'end' ? W - pad.r : sx);
+    // obie linijki w całości nad punktem, a gdy brak miejsca — pod nim
+    var above = sy - 26 >= pad.t - 4;
+    var ty = above ? sy - 25 : sy + 19;
+    s += '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" text-anchor="' + anchor + '" class="pin">' +
+         kg(selP.weight) + ' kg</text>';
+    s += '<text x="' + tx.toFixed(1) + '" y="' + (ty + 11).toFixed(1) + '" text-anchor="' + anchor + '" class="pindate">' +
+         fmtDate(selP.date) + '</text>';
+  } else {
+    s += '<text x="' + Math.min(X(lastP.date), W - pad.r).toFixed(1) + '" y="' + Math.max(Y(lastP.weight) - 9, 10).toFixed(1) +
+         '" text-anchor="end" class="tip">' + kg(lastP.weight) + ' kg</text>';
+  }
   s += '<text x="' + pad.l + '" y="' + (H - 5) + '" text-anchor="start">' + fmtDate(data[0].date) + '</text>';
   s += '<text x="' + (W - pad.r) + '" y="' + (H - 5) + '" text-anchor="end">' + fmtDate(lastP.date) + '</text>';
   s += '</svg>';
@@ -966,6 +1043,7 @@ document.getElementById('sessionSec').addEventListener('click', function (ev) {
   var b = ev.target.closest('.exrow');
   if (!b) return;
   active = b.dataset.ex;
+  chartSel = null;
   render();
   document.getElementById('composePanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
   document.getElementById('weight').focus();
@@ -1030,8 +1108,18 @@ function render() {
     dEl.style.color = delta > 0 ? 'var(--up)' : (delta < 0 ? 'var(--down)' : 'var(--ink)');
 
     var cb = document.getElementById('chartBox');
-    if (f.length > 1) { cb.classList.remove('hidden'); cb.innerHTML = drawChart(f); }
-    else { cb.classList.add('hidden'); cb.innerHTML = ''; }
+    if (f.length > 1) {
+      renderRanges(f);
+      var opt = RANGES.filter(function (r) { return r.id === chartRange; })[0] || RANGES[4];
+      var shown = inRange(f, opt.days);
+      if (shown.length < 2) { chartRange = 'all'; shown = f; renderRanges(f); }
+      cb.classList.remove('hidden');
+      cb.innerHTML = drawChart(shown);
+    } else {
+      document.getElementById('ranges').classList.add('hidden');
+      cb.classList.add('hidden');
+      cb.innerHTML = '';
+    }
   } else { ps.classList.add('hidden'); }
 
   // historia
@@ -1104,6 +1192,22 @@ document.getElementById('date').addEventListener('change', function () {
   else setDate(shiftISO(0));
 });
 
+document.getElementById('ranges').addEventListener('click', function (ev) {
+  var b = ev.target.closest('.rbtn');
+  if (!b || b.disabled) return;
+  chartRange = b.dataset.range;
+  chartSel = null;
+  render();
+});
+
+document.getElementById('chartBox').addEventListener('click', function (ev) {
+  var c = ev.target.closest('.hit');
+  if (!c) return;
+  chartSel = chartSel === c.dataset.date ? null : c.dataset.date;
+  render();
+});
+
+/* zmiana ćwiczenia zeruje wskazany punkt — należał do innych danych */
 /* ---------- akcje ---------- */
 function showErr(text) {
   var el = document.getElementById('formErr');
@@ -1206,6 +1310,7 @@ document.getElementById('exPick').addEventListener('click', function () {
   ask({ title: 'Ćwiczenie', list: html }).then(function (v) {
     if (v === null) return;
     active = v;
+    chartSel = null;
     showErr('');
     render();
   });
